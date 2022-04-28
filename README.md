@@ -4,7 +4,7 @@ A Python API library for exploration and data retrieval of data from NCBI
 
 ## Example of GSE Data Retrival
 
-```
+```py
 # Create Reader Instance
 reader= GEOReader()
 # Extact all GSM info associated to GSE99624 (Saved csv will appear in your downloads folder)
