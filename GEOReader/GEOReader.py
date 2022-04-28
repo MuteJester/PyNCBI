@@ -238,27 +238,3 @@ class GEOReader:
 
         return dataframe_info
 
-
-gses = ['GSE106648',
-        'GSE107143',
-        'GSE111165',
-        'GSE111629',
-        'GSE41169',
-        'GSE50660',
-        'GSE52113',
-        'GSE52114',
-        'GSE52588',
-        'GSE53128',
-        'GSE53130',
-        'GSE64495',
-        'GSE67751',
-        'GSE77445',
-        'GSE84003',
-        'GSE85506',
-        'GSE87571',
-        'GSE99624']
-reader = GEOReader()
-
-datas = []
-for gse in tqdm(gses):
-    rd = reader.extract_gse_sample_info(gse)
