@@ -18,6 +18,34 @@ from Utils.Utilities import is_info_dataframe_in_downloads
 
 
 class GEOReader:
+    """
+      A connector class to a REST type API to NCBI's GEO via get requests used to inference, interact and
+      scrape GSM/GSE/PLATFORM Tickets
+      ...
+
+      Attributes
+      ----------
+      headless : bool
+          if using browser whether to show selenium driver or not
+      browser : bool
+          if True than the connection to NCBI will be made via selenium deriver and all commands will be ran
+          used selenium if False than the requests library will be used to directly interact with NCBI's REST API
+
+      Methods
+      -------
+      _go_to_page(url)
+          a util function used to navigate selenium webdriver to the given url
+      parse_gsm_soft(gsm,remove_trace)
+        this function parses the corresponding SOFT file to the passed gsm name from your local /Downloads folder
+      gsms_from_gse_soft(gse, remove_trace)
+        this function uses a GSE SOFT file to extract all GSM numbers corresponding to that GSE
+      extract_gsm_data(gsm,verbose)
+        Extract data of a single GSM by downloading its SOFT file and parsing it
+      extract_gse_sample_info(gse):
+          Iterate over all GSM's associated with a given GSE and extract all information available
+            on those GSM's on NCBI
+
+    """
     def __init__(self, headless=False, browser=False):
         self.browser_mode = browser
         if self.browser_mode:
@@ -29,7 +57,7 @@ class GEOReader:
             else:
                 self.browser = webdriver.Chrome(ChromeDriverManager().install())
 
-    def go_to_page(self, url):
+    def _go_to_page(self, url):
         if self.browser_mode:
             self.browser.get(url)
         else:
@@ -122,7 +150,7 @@ class GEOReader:
         """
 
         if self.browser_mode:
-            self.go_to_page(NCBI_QUERY_URL + gsm)
+            self._go_to_page(NCBI_QUERY_URL + gsm)
 
             # select SOFT
             wait = WebDriverWait(self.browser, 10)
@@ -167,7 +195,7 @@ class GEOReader:
             return pd.read_csv(str(Path.home()) + '/Downloads/' + gse + '_INFO.csv')
 
         if self.browser_mode:
-            self.go_to_page(NCBI_QUERY_URL + gse)
+            self._go_to_page(NCBI_QUERY_URL + gse)
 
             # select SOFT
             wait = WebDriverWait(self.browser, 10)
