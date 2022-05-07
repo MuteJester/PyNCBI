@@ -1,3 +1,5 @@
+import re
+
 import pandas as pd
 import numpy as np
 # selenium 3
@@ -14,7 +16,7 @@ import time
 from tqdm.auto import tqdm
 import requests
 from Utils.Constants import NCBI_QUERY_URL
-from Utils.Utilities import is_info_dataframe_in_downloads
+from Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally
 
 
 class GEOReader:
@@ -144,7 +146,7 @@ class GEOReader:
 
         return data
 
-    def extract_gsm_data(self, gsm,verbose=False):
+    def extract_gsm_info(self, gsm, verbose=False):
         """
         Extract data of a single GSM by downloading its SOFT file and parsing it
         """
@@ -225,7 +227,7 @@ class GEOReader:
         itr = tqdm(GSMS,leave=False,position=0)
         retrived_data = []
         for gsm in itr:
-            retrived_data.append(self.extract_gsm_data(gsm))
+            retrived_data.append(self.extract_gsm_info(gsm))
             itr.set_postfix({'Last GSM Extracted: ': gsm})
 
         print('Finished GSM Info Extraction')
@@ -237,4 +239,40 @@ class GEOReader:
         print('Saved: ' + '/Downloads/' + gse + '_INFO.csv')
 
         return dataframe_info
+
+    def gsm_page_data_status(self,gsm):
+        """
+        This function checks the format of data availability a GSM card has, it can be either the data is present
+        on page, meaning all the probe values can be extracted from the card itself,
+        or there can be idat files (red and green) which need to be than parsed via an idat reader.
+        In some cases there is no data available in which case the appropriate response will return
+
+        :return: 0 - Data on page,
+                 1 - IDAT files,
+                -1 - no data available
+        """
+
+        soft_link = f'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={gsm}&targ=self&form=text&view=quick'
+        gsm_soft = get_data_locally(soft_link)
+
+        sup_file = re.findall(r'!Sample_supplementary_file = .+', gsm_soft)
+
+        # conditions for gsm card being classified as "has idat files"
+        cond_idat = [len(sup_file) == 2,'idat' in sup_file[0]]
+
+        # conditions for gsm card being classified as "has data"
+        rowcount = re.search(r'!Sample_data_row_count = [0-9]+', gsm_soft).group()[25:]
+        rowcount = int(rowcount)
+        cond_data_on_page = [len(sup_file) == 1,'NONE' in sup_file[0],rowcount>0]
+        if all(cond_idat):
+            return 1
+        elif all(cond_data_on_page):
+            return 0
+        else:
+            return -1
+
+
+
+
+
 

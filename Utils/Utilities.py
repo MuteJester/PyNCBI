@@ -62,3 +62,18 @@ def is_info_dataframe_in_downloads(gse):
     else:
         return False
 
+
+def get_data_locally(link):
+    """
+    this function will download the file provided in the link variable, the link url should be a byte string and be
+    the actual location of the file on a server, meaning that a get request will retrieve that file
+    :param link: a link the file
+    :return: a string containing the test in the file
+    """
+    try:
+        data_stream = requests.get(link,stream=True)
+        return data_stream.content.decode('utf-8')
+    except Exception as e:
+        print('There Was an Error while downloading file from: ',link)
+        print('Exception: ',e)
+        return None
