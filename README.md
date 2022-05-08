@@ -10,7 +10,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/MuteJester/PyNCBI">
-    <img src="Repo%20Misc/pyncbi_logo.png" alt="Logo" width="280" height="230">
+    <img src="Repo%20Misc/pyncbi_logo.png" alt="Logo" width="480" height="150">
   </a>
 
   <h2 align="center">PyNCBI</h2>
