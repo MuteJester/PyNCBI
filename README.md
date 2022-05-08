@@ -10,13 +10,13 @@
 <br />
 <p align="center">
   <a href="https://github.com/MuteJester/PyNCBI">
-    <img src="Repo Misc/ pyncbi_logo.png" alt="Logo" width="280" height="230">
+    <img src="Repo%20Misc/pyncbi_logo.png" alt="Logo" width="280" height="230">
   </a>
 
   <h2 align="center">PyNCBI</h2>
 
   <p align="center">
-    Simple Solution For Fast Programing Of Data Mining ,Deep Learning And Machine Learning Models As Well As CSV Management.
+    Simple API for Python Integration with NCBI  .
     <br />
     <a href="https://github.com/MuteJester/Java_Brain/wiki"><strong>Explore the docs »</strong></a>
     <br />
