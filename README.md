@@ -18,14 +18,14 @@
   <p align="center">
     Simple API for Python Integration with NCBI  .
     <br />
-    <a href="https://github.com/MuteJester/Java_Brain/wiki"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/MuteJester/PyNCBI/wiki"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/MuteJester/Java_Brain/wiki/A-Simple-Example-Of-Java-Brain-Usage">View Demo</a>
+    <a href="https://github.com/MuteJester/PyNCBI/wiki/">View Demo</a>
     ·
-    <a href="https://github.com/MuteJester/Java_Brain/issues">Report Bug</a>
+    <a href="https://github.com/MuteJester/PyNCBI/issues">Report Bug</a>
     ·
-    <a href="https://github.com/MuteJester/Java_Brain/issues">Request Feature</a>
+    <a href="https://github.com/MuteJester/PyNCBI/issues">Request Feature</a>
   </p>
 </p>
 
@@ -46,6 +46,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 Here's Why PyNCBI :brain: :
+
 When working with methylation data, NCBI might be one of the most extensive open source databases that provide the methylation data and the information around it.
 When working with NCBI on a day-to-day basis, searching, querying, and extracting information may prove to be a time-consuming and headache-producing challenge.
 PyNCBI strives to answer all needs a researcher might need when communicating with NCBI using a straightforward python API that allows to quickly test, extract, analyze and download relevant data.
