@@ -1,9 +1,12 @@
+<p align="center">
+
 [![Stargazers][stars-shield]][stars-url]
 [![Commits][commits-shield]][commits-url]
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
 
+</p>
 
 
 <!-- PROJECT LOGO -->
