@@ -115,7 +115,7 @@ Project Link: [https://github.com/MuteJester/PyNCBI](https://github.com/MuteJest
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[stars-shield]: https://github.com/MuteJester/PyNCBI.svg?style=flat-square
+[stars-shield]: https://img.shields.io/github/stars/MuteJester/PyNCBI.svg?style=flat-square
 [stars-url]: https://github.com/MuteJester/PyNCBI/stargazers
 [issues-shield]: https://img.shields.io/github/issues/othneildrew/Best-README-Template.svg?style=flat-square
 [issues-url]: https://github.com/MuteJester/PyNCBI/issues
