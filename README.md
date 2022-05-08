@@ -45,7 +45,7 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-Here's Why PyNCBI :brain: :
+Here's Why PyNCBI :dna: :
 
 When working with methylation data, NCBI might be one of the most extensive open source databases that provide the methylation data and the information around it.
 When working with NCBI on a day-to-day basis, searching, querying, and extracting information may prove to be a time-consuming and headache-producing challenge.
