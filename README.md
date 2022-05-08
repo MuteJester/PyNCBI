@@ -10,7 +10,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/MuteJester/PyNCBI">
-    <img src="Repo%20Misc/pyncbi_logo.png" alt="Logo" width="480" height="150">
+    <img src="Repo%20Misc/pyncbi_logo.png" alt="Logo" width="480" height="230">
   </a>
 
   <h2 align="center">PyNCBI</h2>
@@ -114,7 +114,7 @@ Project Link: [https://github.com/MuteJester/PyNCBI](https://github.com/MuteJest
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[stars-shield]: httpshttps://github.com/MuteJester/PyNCBI.svg?style=flat-square
+[stars-shield]: https://github.com/MuteJester/PyNCBI.svg?style=flat-square
 [stars-url]: https://github.com/MuteJester/PyNCBI/stargazers
 [issues-shield]: https://img.shields.io/github/issues/othneildrew/Best-README-Template.svg?style=flat-square
 [issues-url]: https://github.com/MuteJester/PyNCBI/issues
