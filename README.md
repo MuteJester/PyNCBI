@@ -63,7 +63,7 @@ PyNCBI strives to answer all needs a researcher might need when communicating wi
 ## Usage
 
 
-####  GSE Data Retrival
+####  GSE Wise Info Retrival
 ```py
 # Create Reader Instance
 reader= GEOReader()
@@ -72,12 +72,22 @@ reader.extract_gse_sample_info('GSE99624')
 ```
 
 
+####  GSE Wise Data Retrival
+```py
+# Create Reader Instance
+reader= GEOReader()
+# Extact all GSM methylation data associated to GSE142512 (Saved csv will appear in your downloads folder per GSM)
+reader.download_gse_data('GSE142512')
+```
+
 
 
 ### Currently Supported Data Features
   * __GSE Wise Card Information Extraction__
   * __GSM Card Information Extraction__
-  
+  * __GSE Wise Methylation Data Extraction__
+  * __GSM Card Methylation Data Extraction__
+
  
 
 
