@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -77,3 +78,33 @@ def get_data_locally(link):
         print('There Was an Error while downloading file from: ',link)
         print('Exception: ',e)
         return None
+
+def progress_bar(current, total, width=80):
+  """
+  This function is a utility for wget download function
+  :param current:
+  :param total:
+  :param width:
+  :return:
+  """
+  progress_message = "Downloading: %d%% [%d / %d] bytes" % (current / total * 100, current, total)
+  sys.stdout.write("\r" + progress_message)
+  sys.stdout.flush()
+
+
+def gsm_data_file_table_start(gsm_file):
+    """
+    this function takes a text file with methylation array data and find the the line on which the data start
+    i.e skips the headers, formally the data start when ID_REF and VALUE are present in the line
+    :param gsm_file:
+    :return:
+    """
+    # line counter
+    aux = 0
+    for line in gsm_file.split('\n'):
+        if 'ID_REF\tVALUE' in line:
+            return aux
+        elif aux > 10:
+            raise ValueError('GSM data file start has not been found in first 10 lines')
+        else:
+            aux+=1

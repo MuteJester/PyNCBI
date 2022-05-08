@@ -1,23 +1,15 @@
 import re
-
+import wget
 import pandas as pd
 import numpy as np
-# selenium 3
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
 import os
 from pathlib import Path
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 import time
 from tqdm.auto import tqdm
 import requests
-from Utils.Constants import NCBI_QUERY_URL
-from Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally
-
+from Utils.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL
+from Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally, progress_bar, gsm_data_file_table_start
+from io import StringIO
 
 class GEOReader:
     """
@@ -48,83 +40,41 @@ class GEOReader:
             on those GSM's on NCBI
 
     """
-    def __init__(self, headless=False, browser=False):
-        self.browser_mode = browser
-        if self.browser_mode:
-            if headless:
-                chrome_options = Options()
-                chrome_options.add_argument("--headless")
-                self.browser = webdriver.Chrome(ChromeDriverManager().install(),
-                                                options=chrome_options)
-            else:
-                self.browser = webdriver.Chrome(ChromeDriverManager().install())
-
-    def _go_to_page(self, url):
-        if self.browser_mode:
-            self.browser.get(url)
-        else:
-            raise ValueError('Browser Mode is Disabled')
-
-    def parse_gsm_soft(self, gsm, remove_trace=True):
+    def __init__(self):
+        pass
+        self.download_folder = str(Path.home()) + '/Downloads/'
+    def parse_gsm_soft(self, gsm):
         """
-        This function will extract the data from a txt file containing soft data of a GSM card
+        This function will extract the data from a string containing soft data of a GSM card
         as it is on NCBI
         """
+        data = gsm.split('\n')
+        # remove redundant lines
+        data = [i for i in data if '!Sample_' in i or '^SAMPLE' in i]
+        # remove prefix
+        data = [i.replace('!Sample_', '') for i in data]
 
-        if self.browser_mode:
-            with open(str(Path.home()) + f'/Downloads/{gsm}.txt', 'r') as h:
-                data = h.read()
-                data = data.split('\n')
-                # remove redundant lines
-                data = [i for i in data if '!Sample_' in i or '^SAMPLE' in i]
-                # remove prefix
-                data = [i.replace('!Sample_', '') for i in data]
+        data = [i for i in data if len(i) > 0]
 
-                data = [i for i in data if len(i) > 0]
+        # compact data keys to dict
+        processed_data = dict()
+        for r in data:
+            # skip anomalies
+            if len(r.split('=')) != 2:
+                continue
+            k, v = r.split('=')
+            k = k.strip()
+            v = v.strip()
+            if k in processed_data:
+                processed_data[k].append(v)
+            else:
+                processed_data[k] = [v]
 
-                # compact data keys to dict
-                processed_data = dict()
-                for r in data:
-                    k, v = r.split('=')
-                    k = k.strip()
-                    v = v.strip()
-                    if k in processed_data:
-                        processed_data[k].append(v)
-                    else:
-                        processed_data[k] = [v]
-        else:
-            data = gsm.split('\n')
-            # remove redundant lines
-            data = [i for i in data if '!Sample_' in i or '^SAMPLE' in i]
-            # remove prefix
-            data = [i.replace('!Sample_', '') for i in data]
-
-            data = [i for i in data if len(i) > 0]
-
-            # compact data keys to dict
-            processed_data = dict()
-            for r in data:
-                # skip anomalies
-                if len(r.split('=')) != 2:
-                    continue
-                k, v = r.split('=')
-                k = k.strip()
-                v = v.strip()
-                if k in processed_data:
-                    processed_data[k].append(v)
-                else:
-                    processed_data[k] = [v]
-
-            # colapse list into a singal string
-            for key in processed_data:
-                processed_data[key] = '\n'.join(processed_data[key])
+        # collapse list into a single string
+        for key in processed_data:
+            processed_data[key] = '\n'.join(processed_data[key])
 
         processed_data = pd.Series(processed_data)
-
-        # remove file from local storage
-        if self.browser_mode and remove_trace:
-            os.remove(str(Path.home()) + f"/Downloads/{gsm}.txt")
-
         return processed_data
 
     def gsms_from_gse_soft(self, gse, remove_trace=True):
@@ -132,18 +82,9 @@ class GEOReader:
         This function extract the list of all GSMS associated with a GSE based on the gse's
         "soft" text file as it is on NCBI
         """
-        if self.browser_mode:
-            with open(str(Path.home()) + f'/Downloads/{gse}.txt', 'r') as h:
-                data = h.read()
-        else:
-            data = gse
+        data = gse
         data = data.split('\n')
         data = [i.split('=')[1].strip() for i in data if '!Series_sample_id' in i]
-
-        # remove trace
-        if self.browser_mode and remove_trace:
-            os.remove(str(Path.home()) + f"/Downloads/{gse}.txt")
-
         return data
 
     def extract_gsm_info(self, gsm, verbose=False):
@@ -151,40 +92,13 @@ class GEOReader:
         Extract data of a single GSM by downloading its SOFT file and parsing it
         """
 
-        if self.browser_mode:
-            self._go_to_page(NCBI_QUERY_URL + gsm)
+        # send query requests to NCBI server
+        response = get_data_locally(f'{NCBI_QUERY_URL}{gsm}&targ=self&form=text&view=quick')
 
-            # select SOFT
-            wait = WebDriverWait(self.browser, 10)
-            selector = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="form"]')))
-            selector.click()
-            selector.send_keys('S')
-            selector.send_keys(Keys.RETURN)
-            # Click to download
-            btn = self.browser.find_element_by_xpath(
-                '//*[@id="ViewOptions"]/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td[2]/img')
-            btn.click()
-            # wait for file to download
-            while (gsm + '.txt') not in os.listdir(str(Path.home()) + '/Downloads/'):
-                time.sleep(1)
-            print(gsm, ' Soft trace Downloaded...')
-            print('Extracting GSM Info')
-            gsm_info = self.parse_gsm_soft(gsm)
+        gsm_info = self.parse_gsm_soft(response)
+        if verbose:
             print(gsm, ' Info Extracted Successfully')
-            return gsm_info
-        else:
-
-            # send query requests to NCBI server
-            response = requests.get(f'{NCBI_QUERY_URL}{gsm}&targ=self&form=text&view=quick')
-
-            # validate response
-            if response.status_code != 200 or 'SAMPLE' not in response.text:
-                raise ValueError('Bad Status when Downloading GSM SOFT file')
-
-            gsm_info = self.parse_gsm_soft(response.text, remove_trace=False)
-            if verbose:
-                print(gsm, ' Info Extracted Successfully')
-            return gsm_info
+        return gsm_info
 
     def extract_gse_sample_info(self, gse):
         """
@@ -196,32 +110,10 @@ class GEOReader:
         if is_info_dataframe_in_downloads(gse):
             return pd.read_csv(str(Path.home()) + '/Downloads/' + gse + '_INFO.csv')
 
-        if self.browser_mode:
-            self._go_to_page(NCBI_QUERY_URL + gse)
+        # send query requests to NCBI server
+        response = get_data_locally(f'{NCBI_QUERY_URL}{gse}&targ=self&form=text&view=quick')
 
-            # select SOFT
-            wait = WebDriverWait(self.browser, 10)
-            selector = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="form"]')))
-            selector.click()
-            selector.send_keys('S')
-            selector.send_keys(Keys.RETURN)
-            # Click to download
-            btn = self.browser.find_element_by_xpath(
-                '//*[@id="ViewOptions"]/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td[2]/img')
-            btn.click()
-            # wait for file to download
-            while (gse + '.txt') not in os.listdir(str(Path.home()) + '/Downloads/'):
-                time.sleep(1)
-            print(gse, ' Soft trace Downloaded...')
-        else:
-            # send query requests to NCBI server
-            response = requests.get(f'{NCBI_QUERY_URL}{gse}&targ=self&form=text&view=quick')
-
-            # validate response
-            if response.status_code != 200 or 'SERIES' not in response.text:
-                raise ValueError('Bad Status when Downloading GSE SOFT file')
-
-        GSMS = self.gsms_from_gse_soft(response.text)
+        GSMS = self.gsms_from_gse_soft(response)
 
         # tqdm iterator
         itr = tqdm(GSMS,leave=False,position=0)
@@ -235,7 +127,7 @@ class GEOReader:
         dataframe_info = pd.concat(retrived_data, axis=1).T
         dataframe_info = dataframe_info.set_index('^SAMPLE')
 
-        dataframe_info.to_csv(str(Path.home()) + '/Downloads/' + gse + '_INFO.csv')
+        dataframe_info.to_csv(self.download_folder+ gse + '_INFO.csv')
         print('Saved: ' + '/Downloads/' + gse + '_INFO.csv')
 
         return dataframe_info
@@ -263,13 +155,68 @@ class GEOReader:
         # conditions for gsm card being classified as "has data"
         rowcount = re.search(r'!Sample_data_row_count = [0-9]+', gsm_soft).group()[25:]
         rowcount = int(rowcount)
-        cond_data_on_page = [len(sup_file) == 1,'NONE' in sup_file[0],rowcount>0]
+        cond_data_on_page = [len(sup_file) == 1,('NONE' in sup_file[0] or ('Red' not in sup_file[0])),rowcount>0]
         if all(cond_idat):
             return 1
         elif all(cond_data_on_page):
             return 0
         else:
             return -1
+
+    def download_gsm_data(self,gsm):
+        """
+        This function will download the methylation data present on the GSM card depending on that cards methylation
+        data status
+        :param gsm:
+        :return:
+        """
+        data_status = self.gsm_page_data_status(gsm)
+
+        # idat clause
+        if data_status == 1:
+            # get soft data for gsm card
+            soft_link = f'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={gsm}&targ=self&form=text&view=quick'
+            gsm_soft = get_data_locally(soft_link)
+            # find and process FTP urls
+            sup_file = re.findall(r'!Sample_supplementary_file = .+', gsm_soft)
+            sup_file = [i[29:-1] for i in sup_file]
+
+            # download ftp green and red gz files
+            for url in tqdm(sup_file):
+                wget.download(url=url,out=self.download_folder+url.split('/')[-1],bar=progress_bar)
+        # data on page clause
+        elif data_status == 0:
+            page_data_url =NCBI_QUERY_BASE_URL+f'?acc={gsm}&targ=self&form=text&view=data'
+            probe_data = get_data_locally(page_data_url)
+            # remove header
+            data_start = gsm_data_file_table_start(probe_data)
+            probe_data = probe_data.split('\n')
+            probe_data = '\n'.join(probe_data[data_start:-2])
+            # convert to dataframe
+            probe_data = pd.read_table(StringIO(probe_data))
+            # process dataframe
+            probe_data = probe_data.rename(columns={'ID_REF':'probe','VALUE':gsm})
+            probe_data[gsm] = probe_data[gsm].astype(np.float32)
+            probe_data.to_csv(self.download_folder+gsm+'.csv',index=False)
+        else:
+            print(f'No Data Exists on GSM Card for {gsm}')
+
+    def download_gse_data(self,gse):
+        """
+        this function will iterate over all GSMs associated to a given GSE and download each GSM
+        card methylation data
+        :param gse:
+        :return:
+        """
+        # send query requests to NCBI server
+        response = get_data_locally(f'{NCBI_QUERY_URL}{gse}&targ=self&form=text&view=quick')
+        GSMS = self.gsms_from_gse_soft(response)
+
+        iterator = tqdm(GSMS,position=0)
+        for gsm in iterator:
+            self.download_gsm_data(gsm)
+            iterator.set_postfix({'Status: ':f'Downloaded {gsm} Successfully'})
+
 
 
 
