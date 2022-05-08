@@ -9,11 +9,11 @@
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
-  <a href="https://github.com/MuteJester/Java_Brain">
+  <a href="https://github.com/MuteJester/PyNCBI">
     <img src="Repo Misc/ pyncbi_logo.png" alt="Logo" width="280" height="230">
   </a>
 
-  <h3 align="center">Java Brain Library</h3>
+  <h3 align="center">PyNCBI</h3>
 
   <p align="center">
     Simple Solution For Fast Programing Of Data Mining ,Deep Learning And Machine Learning Models As Well As CSV Management.
