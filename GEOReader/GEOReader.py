@@ -8,8 +8,10 @@ import time
 from tqdm.auto import tqdm
 import requests
 from Utils.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL
-from Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally, progress_bar, gsm_data_file_table_start
+from Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally, progress_bar, gsm_data_file_table_start, gunzip_shutil
 from io import StringIO
+import shutil
+import gzip
 
 class GEOReader:
     """
@@ -163,7 +165,7 @@ class GEOReader:
         else:
             return -1
 
-    def download_gsm_data(self,gsm):
+    def download_gsm_data(self,gsm,to_path=None):
         """
         This function will download the methylation data present on the GSM card depending on that cards methylation
         data status
@@ -183,7 +185,14 @@ class GEOReader:
 
             # download ftp green and red gz files
             for url in tqdm(sup_file):
-                wget.download(url=url,out=self.download_folder+url.split('/')[-1],bar=progress_bar)
+                save_path = self.download_folder if to_path is None else to_path
+                wget.download(url=url,out=save_path+url.split('/')[-1],bar=progress_bar)
+                # check if file is tar zipped
+                if '.gz' in url.split('/')[-1]:
+                    # unpack and delete zipped version
+                    gunzip_shutil(save_path+url.split('/')[-1],save_path+url.split('/')[-1][:-3])
+                    # delete zipped file
+                    os.remove(save_path+url.split('/')[-1])
         # data on page clause
         elif data_status == 0:
             page_data_url =NCBI_QUERY_BASE_URL+f'?acc={gsm}&targ=self&form=text&view=data'
@@ -197,11 +206,14 @@ class GEOReader:
             # process dataframe
             probe_data = probe_data.rename(columns={'ID_REF':'probe','VALUE':gsm})
             probe_data[gsm] = probe_data[gsm].astype(np.float32)
-            probe_data.to_csv(self.download_folder+gsm+'.csv',index=False)
+            if to_path is not None:
+                probe_data.to_csv(to_path + gsm + '.csv', index=False)
+            else:
+                probe_data.to_csv(self.download_folder+gsm+'.csv',index=False)
         else:
             print(f'No Data Exists on GSM Card for {gsm}')
 
-    def download_gse_data(self,gse):
+    def download_gse_data(self,gse,to_path=None):
         """
         this function will iterate over all GSMs associated to a given GSE and download each GSM
         card methylation data
@@ -214,7 +226,7 @@ class GEOReader:
 
         iterator = tqdm(GSMS,position=0)
         for gsm in iterator:
-            self.download_gsm_data(gsm)
+            self.download_gsm_data(gsm,to_path)
             iterator.set_postfix({'Status: ':f'Downloaded {gsm} Successfully'})
 
 

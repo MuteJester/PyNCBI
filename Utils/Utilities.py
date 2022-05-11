@@ -1,5 +1,7 @@
+import gzip
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -108,3 +110,8 @@ def gsm_data_file_table_start(gsm_file):
             raise ValueError('GSM data file start has not been found in first 10 lines')
         else:
             aux+=1
+
+def gunzip_shutil(source_filepath, dest_filepath, block_size=65536):
+    with gzip.open(source_filepath, 'rb') as s_file, \
+            open(dest_filepath, 'wb') as d_file:
+        shutil.copyfileobj(s_file, d_file, block_size)
