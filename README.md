@@ -88,11 +88,19 @@ reader= GEOReader()
 reader.download_gsm_data('GSM1518180')
 ```
 
+####  Parsing IDAT files
+```py
+from PyNCBI.Utils.FileUtilities import parse_idat_files
+# Beta Values will be stored in a parquet file in path
+parse_idat_files("Path_To_IDAT_FILES/",'array_type')
+```
+
 ### Currently Supported Data Features
   * __GSE Wise Card Information Extraction__
   * __GSM Card Information Extraction__
   * __GSE Wise Methylation Data Extraction__
   * __GSM Card Methylation Data Extraction__
+  * __IDAT File Parsing Management Based on methylprep__
 
  
 
