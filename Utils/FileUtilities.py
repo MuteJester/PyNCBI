@@ -1,8 +1,7 @@
 import methylprep
-#    sample_sheet = methylprep.get_sample_sheet(path)
 import pandas as pd
 import os
-
+from tqdm.auto import tqdm
 from Utils.Constants import SAMPLE_SHEET_COLUMNS
 
 
@@ -127,3 +126,34 @@ def parse_idat_files(path,array_type):
     dataframe.to_parquet(path+'parsed_beta_values.parquet')
 
     print('All samples parsed and saved')
+
+def merge_gsm_data_files(path):
+    """
+    This function will aggregate all csv files in a given path that contain the methylation data of a single GSM into
+    one large parquet file made out of N columns where N is equal to the number of original separate GSM methylation
+    data csv files.
+
+    The structure of the individual GSM csv files MUST have 2 column, a column named "probe" that contains the list
+    of cgs and a column named GSMXXXXXX which is the GSM identifier, under this column are the parried values
+    corresponding to the ones in the "probe" column.
+    :param path:
+    :return: This function will save a parquet file in the path folder named "merged_gsms.parquet"
+    """
+
+    # only csv files
+    files_in_path = [file for file in os.listdir(path) if '.csv' in file]
+    individual_gsm_data = []
+    for file in tqdm(files_in_path):
+        gsm_data = pd.read_csv(path+file)
+        data_column = list(filter(lambda x: 'GSM' in x,gsm_data.columns))
+        # validate there was indeed a 'GSM' column found
+        if len(data_column) != 1 or 'probe' not in gsm_data.columns:
+            raise ValueError(f'Error in finding GSM/probe columns when reading {file}')
+        data_column = data_column[0]
+        individual_gsm_data.append(gsm_data[['probe',data_column]].set_index('probe'))
+
+    merged = pd.concat(individual_gsm_data,axis=1)
+    merged.to_parquet(path+'merged_gsms.parquet')
+    # Log
+    print('merged_gsms.parquet Was successfully saved!')
+

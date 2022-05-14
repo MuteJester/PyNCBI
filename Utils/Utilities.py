@@ -12,10 +12,13 @@ from tqdm import tqdm
 from Utils.Constants import NCBI_QUERY_URL
 
 
-def parse_characteristics(char_section):
+def parse_characteristics(char_section, indices=None):
     """
     This function will take in a characteristics_ch1 section from a GSM soft format
     and split it into a dataframe where each column is a characteristic
+    :param char_section: characteristics_ch1 section string
+    :param indices: the index value of the returned DataFrame (optional)
+    :return:
     """
     jsns = []
     for i in char_section:
@@ -29,7 +32,13 @@ def parse_characteristics(char_section):
             v = v.strip()
             d[k] = v
         jdict.append(d)
-    return pd.DataFrame(jdict)
+
+    if indices is None:
+        return pd.DataFrame(jdict)
+    else:
+        rdf = pd.DataFrame(jdict)
+        rdf.index = indices
+        return rdf
 
 
 def gse_of_gsm(gsm_number):
