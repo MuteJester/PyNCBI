@@ -1,5 +1,4 @@
-from GEOReader import  GEOReader
-from Utilities import *
-from FileUtilities import *
-
-from Constants import *
+from PyNCBI.GEOReader import  GEOReader
+from PyNCBI.Utilities import *
+from PyNCBI.FileUtilities import *
+from PyNCBI.Constants import *
