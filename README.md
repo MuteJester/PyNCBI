@@ -57,7 +57,7 @@ PyNCBI strives to answer all needs a researcher might need when communicating wi
 
 
 ### Installation
-```py
+```
 pip install PyNCBI
 ```
 
