@@ -1,17 +1,16 @@
-import re
-import wget
-import pandas as pd
-import numpy as np
 import os
-from pathlib import Path
-import time
-from tqdm.auto import tqdm
-import requests
-from Utils.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL
-from Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally, progress_bar, gsm_data_file_table_start, gunzip_shutil
+import re
 from io import StringIO
-import shutil
-import gzip
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import wget
+from tqdm.auto import tqdm
+from PyNCBI.Utils.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL
+from PyNCBI.Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally, progress_bar, \
+    gsm_data_file_table_start, gunzip_shutil
+
 
 class GEOReader:
     """
@@ -21,16 +20,9 @@ class GEOReader:
 
       Attributes
       ----------
-      headless : bool
-          if using browser whether to show selenium driver or not
-      browser : bool
-          if True than the connection to NCBI will be made via selenium deriver and all commands will be ran
-          used selenium if False than the requests library will be used to directly interact with NCBI's REST API
 
       Methods
       -------
-      _go_to_page(url)
-          a util function used to navigate selenium webdriver to the given url
       parse_gsm_soft(gsm,remove_trace)
         this function parses the corresponding SOFT file to the passed gsm name from your local /Downloads folder
       gsms_from_gse_soft(gse, remove_trace)

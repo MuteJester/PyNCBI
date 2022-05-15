@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 # Utils
-from Utils.Constants import NCBI_QUERY_URL
+from PyNCBI.Utils.Constants import NCBI_QUERY_URL
 
 
 def parse_characteristics(char_section, indices=None):
