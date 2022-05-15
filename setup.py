@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'PyNCBI',
   packages = ['PyNCBI'],
-  version = '0.1.11',
+  version = '0.1.2',
   license='MIT',
   description = 'Simple API for Python Integration with NCBI',
   author = 'Thomas Konstantinovsky',
