@@ -67,6 +67,7 @@ pip install PyNCBI
 
 ####  GSE Wise Info Retrival
 ```py
+from PyNCBI import GEOReader
 # Create Reader Instance
 reader= GEOReader()
 # Extact all GSM info associated to GSE99624 (Saved csv will appear in your downloads folder)
@@ -76,6 +77,7 @@ reader.extract_gse_sample_info('GSE99624')
 
 ####  GSE Wise Data Retrival
 ```py
+from PyNCBI import GEOReader
 # Create Reader Instance
 reader= GEOReader()
 # Extact all GSM methylation data associated to GSE142512 (Saved files will appear in your downloads folder per GSM depending on page data status)
@@ -84,6 +86,7 @@ reader.download_gse_data('GSE142512')
 
 ####  Single GSM Data Retrival
 ```py
+from PyNCBI import GEOReader
 # Create Reader Instance
 reader= GEOReader()
 # Extact GSM methylation data associated to GSE142512 (Saved file will appear in your downloads folder per GSM depending on page data status)
@@ -93,7 +96,7 @@ reader.download_gsm_data('GSM1518180')
 ####  Parsing IDAT files
 
 ```py
-from PyNCBI.FileUtilities import parse_idat_files
+from PyNCBI import parse_idat_files
 
 # Beta Values will be stored in a parquet file in path
 parse_idat_files("Path_To_IDAT_FILES/", 'array_type')
