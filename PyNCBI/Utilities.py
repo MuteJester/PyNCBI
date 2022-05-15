@@ -7,9 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 import requests
-from tqdm import tqdm
 # Utils
-from PyNCBI.Utils.Constants import NCBI_QUERY_URL
+from PyNCBI.Constants import NCBI_QUERY_URL
 
 
 def parse_characteristics(char_section, indices=None):

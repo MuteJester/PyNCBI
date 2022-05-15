@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import wget
 from tqdm.auto import tqdm
-from PyNCBI.Utils.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL
-from PyNCBI.Utils.Utilities import is_info_dataframe_in_downloads, get_data_locally, progress_bar, \
+from PyNCBI.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL
+from PyNCBI.Utilities import is_info_dataframe_in_downloads, get_data_locally, progress_bar, \
     gsm_data_file_table_start, gunzip_shutil
 
 

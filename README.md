@@ -89,10 +89,12 @@ reader.download_gsm_data('GSM1518180')
 ```
 
 ####  Parsing IDAT files
+
 ```py
-from PyNCBI.Utils.FileUtilities import parse_idat_files
+from PyNCBI.FileUtilities import parse_idat_files
+
 # Beta Values will be stored in a parquet file in path
-parse_idat_files("Path_To_IDAT_FILES/",'array_type')
+parse_idat_files("Path_To_IDAT_FILES/", 'array_type')
 ```
 
 ### Currently Supported Data Features

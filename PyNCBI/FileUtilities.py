@@ -2,7 +2,7 @@ import methylprep
 import pandas as pd
 import os
 from tqdm.auto import tqdm
-from PyNCBI.Utils.Constants import SAMPLE_SHEET_COLUMNS
+from PyNCBI.Constants import SAMPLE_SHEET_COLUMNS
 
 
 def check_for_sample_sheet(path):
