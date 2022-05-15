@@ -57,7 +57,9 @@ PyNCBI strives to answer all needs a researcher might need when communicating wi
 
 
 ### Installation
-1. TODO: Add steps after project is on PIP
+```py
+pip install PyNCBI
+```
 
 <!-- USAGE EXAMPLES -->
 ## Usage
