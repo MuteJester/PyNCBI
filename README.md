@@ -151,9 +151,9 @@ Project Link: [https://github.com/MuteJester/PyNCBI](https://github.com/MuteJest
 <!-- MARKDOWN LINKS & IMAGES -->
 [stars-shield]: https://img.shields.io/github/stars/MuteJester/PyNCBI.svg?style=flat-square
 [stars-url]: https://github.com/MuteJester/PyNCBI/stargazers
-[issues-shield]: https://img.shields.io/github/issues/othneildrew/Best-README-Template.svg?style=flat-square
+[issues-shield]: https://img.shields.io/github/issues/MuteJester/PyNCBI.svg?style=flat-square
 [issues-url]: https://github.com/MuteJester/PyNCBI/issues
-[license-shield]: https://img.shields.io/github/license/othneildrew/Best-README-Template.svg?style=flat-square
+[license-shield]: https://img.shields.io/github/license/MuteJester/PyNCBI.svg?style=flat-square
 [license-url]: https://github.com/MuteJester/PyNCBI/blob/master/LICENSE
 [commits-shield]: https://img.shields.io/github/commit-activity/m/MuteJester/PyNCBI?style=flat-square
 [commits-url]: https://github.com/MuteJester/PyNCBI
