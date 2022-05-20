@@ -57,7 +57,9 @@ PyNCBI strives to answer all needs a researcher might need when communicating wi
 
 
 ### Installation
-1. TODO: Add steps after project is on PIP
+```
+pip install PyNCBI
+```
 
 <!-- USAGE EXAMPLES -->
 ## Usage
@@ -65,6 +67,7 @@ PyNCBI strives to answer all needs a researcher might need when communicating wi
 
 ####  GSE Wise Info Retrival
 ```py
+from PyNCBI import GEOReader
 # Create Reader Instance
 reader= GEOReader()
 # Extact all GSM info associated to GSE99624 (Saved csv will appear in your downloads folder)
@@ -74,6 +77,7 @@ reader.extract_gse_sample_info('GSE99624')
 
 ####  GSE Wise Data Retrival
 ```py
+from PyNCBI import GEOReader
 # Create Reader Instance
 reader= GEOReader()
 # Extact all GSM methylation data associated to GSE142512 (Saved files will appear in your downloads folder per GSM depending on page data status)
@@ -82,6 +86,7 @@ reader.download_gse_data('GSE142512')
 
 ####  Single GSM Data Retrival
 ```py
+from PyNCBI import GEOReader
 # Create Reader Instance
 reader= GEOReader()
 # Extact GSM methylation data associated to GSE142512 (Saved file will appear in your downloads folder per GSM depending on page data status)
@@ -91,7 +96,7 @@ reader.download_gsm_data('GSM1518180')
 ####  Parsing IDAT files
 
 ```py
-from PyNCBI.FileUtilities import parse_idat_files
+from PyNCBI import parse_idat_files
 
 # Beta Values will be stored in a parquet file in path
 parse_idat_files("Path_To_IDAT_FILES/", 'array_type')
@@ -146,9 +151,9 @@ Project Link: [https://github.com/MuteJester/PyNCBI](https://github.com/MuteJest
 <!-- MARKDOWN LINKS & IMAGES -->
 [stars-shield]: https://img.shields.io/github/stars/MuteJester/PyNCBI.svg?style=flat-square
 [stars-url]: https://github.com/MuteJester/PyNCBI/stargazers
-[issues-shield]: https://img.shields.io/github/issues/othneildrew/Best-README-Template.svg?style=flat-square
+[issues-shield]: https://img.shields.io/github/issues/MuteJester/PyNCBI.svg?style=flat-square
 [issues-url]: https://github.com/MuteJester/PyNCBI/issues
-[license-shield]: https://img.shields.io/github/license/othneildrew/Best-README-Template.svg?style=flat-square
+[license-shield]: https://img.shields.io/github/license/MuteJester/PyNCBI.svg?style=flat-square
 [license-url]: https://github.com/MuteJester/PyNCBI/blob/master/LICENSE
 [commits-shield]: https://img.shields.io/github/commit-activity/m/MuteJester/PyNCBI?style=flat-square
 [commits-url]: https://github.com/MuteJester/PyNCBI
