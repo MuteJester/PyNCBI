@@ -5,6 +5,7 @@ setup(
   version = '0.1.4',
   license='MIT',
   description = 'Simple API for Python Integration with NCBI',
+  long_description = 'Simple API for Python Integration with NCBI',
   author = 'Thomas Konstantinovsky',
   author_email = 'thomaskon90@gmail.com',
   url = 'https://github.com/MuteJester/PyNCBI',
