@@ -1,11 +1,18 @@
 from setuptools import setup
+try:
+    from pypandoc import convert
+    read_md = lambda f: convert(f, 'rst')
+except ImportError:
+    print("warning: pypandoc module not found, could not convert Markdown to RST")
+    read_md = lambda f: open(f, 'r').read()
+
 setup(
   name = 'PyNCBI',
   packages = ['PyNCBI'],
   version = '0.1.5',
   license='MIT',
   description = 'Simple API for Python Integration with NCBI',
-  long_description = 'Simple API for Python Integration with NCBI',
+  long_description = read_md('README.md'),
   author = 'Thomas Konstantinovsky',
   author_email = 'thomaskon90@gmail.com',
   url = 'https://github.com/MuteJester/PyNCBI',
