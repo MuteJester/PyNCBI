@@ -12,7 +12,7 @@ setup(
   version = '0.1.5',
   license='MIT',
   description = 'Simple API for Python Integration with NCBI',
-  long_description = read_md('README.md'),
+  long_description = 'Simple API for Python Integration with NCBI',
   long_description_content_type='text/markdown',
   author = 'Thomas Konstantinovsky',
   author_email = 'thomaskon90@gmail.com',
