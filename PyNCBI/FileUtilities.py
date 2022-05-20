@@ -118,7 +118,7 @@ def parse_idat_files(path,array_type):
     # aggregate all sentrix_ids
 
 
-    dataframe = methylprep.run_pipeline('/Users/Tomas/Downloads/testg/',
+    dataframe = methylprep.run_pipeline(path,
                                               array_type=array_type, export=False,betas=True,
                             save_control=False,meta_data_frame=False)
 
