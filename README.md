@@ -64,8 +64,8 @@ pip install PyNCBI
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-
-####  GSE Wise Info Retrival
+### GEOReader
+#####  GSE Wise Info Retrival
 ```py
 from PyNCBI import GEOReader
 # Create Reader Instance
@@ -75,7 +75,7 @@ reader.extract_gse_sample_info('GSE99624')
 ```
 
 
-####  GSE Wise Data Retrival
+#####  GSE Wise Data Retrival
 ```py
 from PyNCBI import GEOReader
 # Create Reader Instance
@@ -84,7 +84,7 @@ reader= GEOReader()
 reader.download_gse_data('GSE142512')
 ```
 
-####  Single GSM Data Retrival
+#####  Single GSM Data Retrival
 ```py
 from PyNCBI import GEOReader
 # Create Reader Instance
@@ -93,7 +93,7 @@ reader= GEOReader()
 reader.download_gsm_data('GSM1518180')
 ```
 
-####  Parsing IDAT files
+#####  Parsing IDAT files
 
 ```py
 from PyNCBI import parse_idat_files
@@ -102,9 +102,17 @@ from PyNCBI import parse_idat_files
 parse_idat_files("Path_To_IDAT_FILES/", 'array_type')
 ```
 
+### GSM
+The GSM API extracts all info from a GSM card and downloads the methylation data, and renders the beta values ready for work.
+After extracting and preprocessing the data once, that GSM instance will be cached for your convenience; each following time, you will reference the same GSM id the cached version will be loaded.
+The GSM class contains the following attributes:
+  * **array_type** - the array type used to sequence the data
+  * **gse** -  the parent GSM id
+  * **info** - a Pandas Series contacting the entire GSM card information
+  * **data** - a Pandas DataFrame containing the probes and matching beta values
+  * **characteristics** - the parsed characteristics section from the GSM info section
 
-####  Single GSM API
-The GSM API extract all info from a GSM card as well as download the methylation data and render the beta values ready for work
+#####  Single GSM API
 ```py
 from PyNCBI import GSM
 
