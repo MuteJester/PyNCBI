@@ -2,7 +2,7 @@ from setuptools import setup
 setup(
   name = 'PyNCBI',
   packages = ['PyNCBI'],
-  version = '0.1.4',
+  version = '0.1.5',
   license='MIT',
   description = 'Simple API for Python Integration with NCBI',
   long_description = 'Simple API for Python Integration with NCBI',
