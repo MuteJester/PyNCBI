@@ -16,7 +16,7 @@ setup(
   author = 'Thomas Konstantinovsky',
   author_email = 'thomaskon90@gmail.com',
   url = 'https://github.com/MuteJester/PyNCBI',
-  download_url = 'https://github.com/MuteJester/PyNCBI/archive/refs/tags/Alpha.tar.gz',
+  download_url = 'https://github.com/MuteJester/PyNCBI/archive/refs/tags/Alpha_v0.1.5.tar.gz',
   keywords = ['api','data database','analytics,biology','methylation','epigenetics','ncbi','epigenetic-data'],   # Keywords that define your package best
     install_requires=[
         'methylprep',
