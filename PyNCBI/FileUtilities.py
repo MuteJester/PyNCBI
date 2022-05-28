@@ -125,8 +125,6 @@ def parse_idat_files(path,array_type):
     dataframe.columns = [sample_name_map[i] for i in dataframe.columns]
     dataframe.to_parquet(path+'parsed_beta_values.parquet')
 
-    print('All samples parsed and saved')
-
 def merge_gsm_data_files(path):
     """
     This function will aggregate all csv files in a given path that contain the methylation data of a single GSM into

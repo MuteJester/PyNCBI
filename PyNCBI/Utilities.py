@@ -14,7 +14,7 @@ from tqdm.auto import tqdm
 import pandas as pd
 import requests
 import wget
-from PyNCBI.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL, LOCAL_DOWNLOADS_FOLDER
+from PyNCBI.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL, LOCAL_DOWNLOADS_FOLDER, CACHE_FOLDER
 
 
 def parse_characteristics(char_section, indices=None):
@@ -186,8 +186,8 @@ def download_gsm_data(gsm, to_path=None,return_file_names = False):
         sup_file = [i[29:-1] for i in sup_file]
 
         # download ftp green and red gz files
-        for url in tqdm(sup_file):
-            save_path = LOCAL_DOWNLOADS_FOLDER if to_path is None else to_path
+        for url in tqdm(sup_file,leave=False,position=0):
+            save_path = CACHE_FOLDER if to_path is None else to_path
             wget.download(url=url, out=save_path + url.split('/')[-1], bar=progress_bar)
             # check if file is tar zipped
             if '.gz' in url.split('/')[-1]:
@@ -244,3 +244,43 @@ def load_and_decompress(path):
         zbtyes = handler.read()
     bytes =  zlib.decompress(zbtyes)
     return pickle.loads(bytes)
+
+def gsms_from_gse_soft(gse_soft_file):
+        """
+        This function extract the list of all GSMS associated with a GSE based on the gse's
+        "soft" text file as it is on NCBI
+        """
+        gse_soft_sp = gse_soft_file.split('\n')
+        GSMS = [i.split('=')[1].strip() for i in gse_soft_sp if '!Series_sample_id' in i]
+        return GSMS
+
+def parse_and_compress_gse_info(gse_soft_file):
+    """
+    This function accepts text as it appears on a GSE's card soft file and outputs a pandas Series where each index
+    is an info parameter and the value is the corresponding information as it appears on the GSE's card
+    :param gse_soft_file:
+    :return:
+    """
+    # remove GSM id entries
+    non_gsm_entries = [i for i in gse_soft_file.split('\n') if '!Series_sample_id' not in i and len(i) > 1]
+    aggregated_values = dict()
+    for info_section in non_gsm_entries:
+        key,value = info_section.split('=')
+        # skip !Series_ prefix
+        key = key[8:].strip()
+        # if not in dictionary create an a list with the first element
+        if key not in aggregated_values:
+            aggregated_values[key] = [value.strip()]
+        else: # this is another entry from the same information key
+            aggregated_values[key].append(value.strip())
+
+    # final preprocessing includes converting list of length 1 to a simple string
+    for key in aggregated_values:
+        if len(aggregated_values[key]) == 1:
+            aggregated_values[key] = aggregated_values[key][0]
+    return pd.Series(aggregated_values)
+
+def chunkify(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]

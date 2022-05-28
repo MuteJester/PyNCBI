@@ -12,5 +12,6 @@ ARRAY_TYPES = {
     'GPL13534':'450k',
     'GPL16304':'450k',
     'GPL21145':'epic',
-    'GPL23976':'epic'
+    'GPL23976':'epic',
+    'GPL8490':'27k'
 }

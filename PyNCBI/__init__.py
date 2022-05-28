@@ -6,3 +6,4 @@ from PyNCBI.Utilities import *
 from PyNCBI.FileUtilities import *
 from PyNCBI.Constants import *
 from PyNCBI.GSM import GSM
+from PyNCBI.GSE import GSE
