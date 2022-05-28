@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from tqdm.auto import tqdm
 from PyNCBI.Constants import SAMPLE_SHEET_COLUMNS
-
+import re
 
 def check_for_sample_sheet(path):
     """
@@ -51,6 +51,7 @@ def generate_sample_sheet(path):
     # TODO: Add folder validation - i.e all files in the folder are red/grn files and that they are coupled
 
     # remove _red/grn.dat from files suffix
+    #rg_regex = re.compile(r'_grn.',re.I)
     files_in_path = [i[:-9] for i in files_in_path]
     # remove duplicated base names resulting from above step
     files_in_path = list(set(files_in_path))

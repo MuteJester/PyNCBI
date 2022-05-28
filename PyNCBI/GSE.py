@@ -1,20 +1,22 @@
 import os
-import tarfile,glob
+import shutil
+import urllib
 from uuid import uuid4
 import pandas as pd
 import wget
+from PyNCBI.FileUtilities import parse_idat_files
 from termcolor import colored
 from PyNCBI import GSM
 from PyNCBI.Constants import NCBI_QUERY_URL, CACHE_FOLDER, ARRAY_TYPES
 from tqdm.auto import tqdm
 from threading import Thread
 from PyNCBI.Utilities import compress_and_store, get_data_locally, gsms_from_gse_soft, parse_and_compress_gse_info, \
-    load_and_decompress, chunkify, progress_bar, gunzip_shutil
+    load_and_decompress, chunkify, progress_bar, gunzip_shutil, unzip_tarfile, remove_non_idat_files
 from multiprocessing.pool import ThreadPool
 
 
 class GSE:
-    def __init__(self, gse_id,mode, overwrite_cache=False, n_threads=1, remove_gsm_caches=True):
+    def __init__(self, gse_id, mode, overwrite_cache=False, n_threads=1, remove_gsm_caches=True):
         self.gse_id = gse_id
         if self.is_cached() and not overwrite_cache:
             self.load_cache()
@@ -26,7 +28,7 @@ class GSE:
             # Extract GSE Info:
             self.__extract_info()
             # Extract GSM Data
-            self.__populate_class(n_threads=n_threads,mode=mode)
+            self.__populate_class(n_threads=n_threads, mode=mode)
 
             # Cache object state
             self.store_cache()
@@ -73,7 +75,7 @@ class GSE:
         for gsm in self.GSMS:
             os.remove(CACHE_FOLDER + self.GSMS[gsm].gsm_id + '.ch')
 
-    def __populate_class(self,mode, n_threads=1):
+    def __populate_class(self, mode, n_threads=1):
         """
         This function will create instances of the GSM object on  which contains the info and methylation beta values
         of a given GSM id, the function will iterate over all GSM associated with a the GSE id given in the __init__
@@ -129,47 +131,120 @@ class GSE:
                         threads[pos].join()
                         itr.set_postfix({'Last GSM Extracted': gsm})
         elif mode == 'supp':
-            supp_files = self.info['supplementary_file'] if type(self.info['supplementary_file']) != str \
-                else [self.info['supplementary_file']]
-            print('Please Select a Supplementary File to Download and Parse:\n')
-            for ax,file in enumerate(supp_files):
-                print(f'{ax+1}. {file.split("/")[-1]}')
-            selection = int(input('-> '))
-            file_name = supp_files[selection-1].split("/")[-1]
-            print('Selected: ',file_name)
+            file_name, selection = self.__prompt_to_select_supp_file()
 
-            # download the sup file
-            wget.download(supp_files[selection-1],out=CACHE_FOLDER+file_name,
-                          bar=progress_bar)
-            # unzip file
-            temp_folder_name = str(uuid4())+'/'
-            os.makedirs(CACHE_FOLDER + temp_folder_name)
-            for f in glob.glob(CACHE_FOLDER+file_name):
-                with tarfile.open(f) as tar:
-                    tar.extractall(CACHE_FOLDER +temp_folder_name)
+            # extract all GSM info shells with no DATA
+            self.__download_GSM_shells()
 
-            # remove all files that dont have .idat in them
-            for file in os.listdir(CACHE_FOLDER +temp_folder_name):
-                if '.idat' not in file:
-                    os.remove(CACHE_FOLDER +temp_folder_name+file)
-            if len(os.listdir(CACHE_FOLDER +temp_folder_name)) == 0:
-                raise Exception('No Idat Files were found in downloaded file!')
-            # TODO: finish supp file download
-            # parse idat values
+            if '.csv.gz' in file_name:
+                # csv flow
+                self.__download_csv_gz(file_name, selection)
+            elif '.tar' in file_name and '.gz' not in file_name:
+                self.__download_tar(file_name, selection)
 
-            # download info per GSM card
+            # remove downloaded file
+            os.remove(CACHE_FOLDER+file_name)
 
-            # add data to GSM card
         else:
             raise ValueError("Invalid mode passed")
 
-    def __thread_extraction(self, gsm_id):
+    def __download_GSM_shells(self, n_threads=3):
+        """
+        This function will iterate over all GSM's associated with a GSE and extract only the information
+        about each GSE (without methylation data)
+        :return:
+        """
+        gsm_ids = list(chunkify(self.GSMS, n_threads))
+        self.GSMS = dict()
+        # tqdm iterator
+        itr = tqdm(gsm_ids, leave=False, position=0)
+        for gsms in itr:
+            # extract per GSM information using the "GSM" object
+            threads = []
+            for gsm in gsms:
+                thread = Thread(target=self.__thread_extraction, args=(gsm, True))
+                thread.daemon = True
+                threads.append(thread)
+            for pos in range(len(threads)):
+                threads[pos].start()
+            for pos in range(len(threads)):
+                threads[pos].join()
+            itr.set_postfix({'Last GSM Extracted': '|'.join(gsms)})
+
+    def __download_csv_gz(self, file_name, selection):
+        # download the sup file
+        wget.download(selection, out=CACHE_FOLDER + file_name, bar=progress_bar)
+        # unzip file
+        temp_folder_name = str(uuid4()) + '/'
+        os.makedirs(CACHE_FOLDER + temp_folder_name)
+        # unpack and delete zipped version
+        gunzip_shutil(CACHE_FOLDER + file_name, CACHE_FOLDER + temp_folder_name + file_name[:-3])
+        # delete zipped file
+        os.remove(CACHE_FOLDER + file_name)
+
+        # load data into GSM's objects
+        data_ = pd.read_csv(CACHE_FOLDER + temp_folder_name + file_name[:-3], index_col=0)
+        for column in data_.columns:
+            for gsm in self.GSMS:
+                if self.GSMS[gsm].info['title'] == column:
+                    # attach data to GSM object from downloaded csv
+                    self.GSMS[gsm].data = data_[column]
+                    # rename Series title to GSM id
+                    self.GSMS[gsm].data.name = gsm
+        # remove temp folder
+        shutil.rmtree(CACHE_FOLDER + temp_folder_name + '/', )
+
+    def __download_tar(self, file_name, selection):
+
+        if file_name not in os.listdir(CACHE_FOLDER):
+            # download the sup file
+            wget.download(selection, out=CACHE_FOLDER + file_name, bar=progress_bar)
+        # unzip file
+        temp_folder_name = str(uuid4()) + '/'
+        os.makedirs(CACHE_FOLDER + temp_folder_name)
+        unzip_tarfile(CACHE_FOLDER + file_name, CACHE_FOLDER + temp_folder_name)
+
+        # remove all files that dont have .idat in them
+        remove_non_idat_files(CACHE_FOLDER + temp_folder_name)
+        # validate folder is not empty of idat files
+        if len(os.listdir(CACHE_FOLDER + temp_folder_name)) == 0:
+            raise Exception('No Idat Files were found in downloaded file!')
+
+        # parse idat values
+        parse_idat_files(CACHE_FOLDER + temp_folder_name, ARRAY_TYPES[self.info.loc['platform_id']])
+        data_ = pd.read_parquet(CACHE_FOLDER + temp_folder_name + '/parsed_beta_values.parquet')
+        # attach data to GSM objects
+        for column in data_.columns:
+            # attach data to GSM object from downloaded csv
+            self.GSMS[column].data = data_[column]
+            self.GSMS[column].data.name = column
+
+         # remove temp folder
+        shutil.rmtree(CACHE_FOLDER + temp_folder_name + '/')
+
+    def __prompt_to_select_supp_file(self):
+        supp_files = self.info['supplementary_file'] if type(self.info['supplementary_file']) != str \
+            else [self.info['supplementary_file']]
+        print('Please Select a Supplementary File to Download and Parse:\n')
+        for ax, file in enumerate(supp_files):
+            print(f'{ax + 1}. {file.split("/")[-1]}')
+        selection = int(input('-> '))
+        file_name = supp_files[selection - 1].split("/")[-1]
+        print('Selected: ', file_name)
+        return file_name, supp_files[selection - 1]
+
+    def __thread_extraction(self, gsm_id, shell_only=False):
         exhaust = 0
         while exhaust < 4:
             try:
-                gsm = GSM(gsm_id)
-                self.GSMS[gsm_id] = gsm
-                break
+                if shell_only:
+                    gsm = GSM(gsm_id, shell_only=True)
+                    self.GSMS[gsm_id] = gsm
+                    break
+                else:
+                    gsm = GSM(gsm_id)
+                    self.GSMS[gsm_id] = gsm
+                    break
             except Exception as e:
                 if str(e) == 'No Data Available on GSM card':
                     self.no_data_GSMS.append(gsm_id)

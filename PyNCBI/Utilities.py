@@ -5,6 +5,7 @@ import pickle
 import re
 import shutil
 import sys
+import urllib
 import zlib
 from io import StringIO
 from pathlib import Path
@@ -15,6 +16,7 @@ import pandas as pd
 import requests
 import wget
 from PyNCBI.Constants import NCBI_QUERY_URL, NCBI_QUERY_BASE_URL, LOCAL_DOWNLOADS_FOLDER, CACHE_FOLDER
+import tarfile, glob
 
 
 def parse_characteristics(char_section, indices=None):
@@ -284,3 +286,26 @@ def chunkify(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+
+def unzip_tarfile(file,dest_folder):
+    for f in glob.glob(file):
+        with tarfile.open(f) as tar:
+            tar.extractall(dest_folder)
+
+def remove_non_idat_files(folder_path):
+    """
+    this function will remove all non .idat files from a given folder
+    if a file is a zipped idat file it will unzip it and remove zipped version
+    :param folder_path:
+    :return:
+    """
+    for file in os.listdir(folder_path):
+        if '.idat' not in file:
+            os.remove(folder_path + file)
+        else:
+            if '.gz' in file:
+                # unzip
+                gunzip_shutil(folder_path+file, folder_path+file[:-3])
+                # delete zipped file
+                os.remove(folder_path+file)
+
