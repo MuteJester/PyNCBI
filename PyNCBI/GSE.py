@@ -16,7 +16,7 @@ from multiprocessing.pool import ThreadPool
 
 
 class GSE:
-    def __init__(self, gse_id, mode, overwrite_cache=False, n_threads=1, remove_gsm_caches=True):
+    def __init__(self, gse_id, mode, overwrite_cache=False, n_threads=1, remove_gsm_caches=True,shell_only=False):
         self.gse_id = gse_id
         if self.is_cached() and not overwrite_cache:
             self.load_cache()
@@ -27,12 +27,14 @@ class GSE:
 
             # Extract GSE Info:
             self.__extract_info()
-            # Extract GSM Data
-            self.__populate_class(n_threads=n_threads, mode=mode)
+
+            if not shell_only:
+                # Extract GSM Data
+                self.__populate_class(n_threads=n_threads, mode=mode)
 
             # Cache object state
             self.store_cache()
-            # by default remove individual saved caches for each GSM
+                # by default remove individual saved caches for each GSM
             if remove_gsm_caches:
                 self.remove_gsm_cache()
 
