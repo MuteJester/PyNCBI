@@ -21,7 +21,7 @@
   <p align="center">
     Simple API for Python Integration with NCBI  .
     <br />
-    <a href="https://github.com/MuteJester/PyNCBI/wiki"><strong>Explore the docs »</strong></a>
+    <a href="https://pyncbi.readthedocs.io/"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="https://github.com/MuteJester/PyNCBI/wiki/">View Demo</a>
