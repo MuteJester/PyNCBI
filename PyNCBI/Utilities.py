@@ -267,7 +267,7 @@ def parse_and_compress_gse_info(gse_soft_file):
     non_gsm_entries = [i for i in gse_soft_file.split('\n') if '!Series_sample_id' not in i and len(i) > 1]
     aggregated_values = dict()
     for info_section in non_gsm_entries:
-        key,value = info_section.split('=')
+        key,value = info_section.split('=',1)
         # skip !Series_ prefix
         key = key[8:].strip()
         # if not in dictionary create an a list with the first element

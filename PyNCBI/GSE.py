@@ -1,6 +1,5 @@
 import os
 import shutil
-import urllib
 from uuid import uuid4
 import pandas as pd
 import wget
@@ -12,11 +11,102 @@ from tqdm.auto import tqdm
 from threading import Thread
 from PyNCBI.Utilities import compress_and_store, get_data_locally, gsms_from_gse_soft, parse_and_compress_gse_info, \
     load_and_decompress, chunkify, progress_bar, gunzip_shutil, unzip_tarfile, remove_non_idat_files
-from multiprocessing.pool import ThreadPool
 
 
 class GSE:
+    """
+        A class to represent a single GSM entity.
+        The class contains all information and data regarding a single GSM as well as various
+        functionality for simple work and management and manipulation of GSM entities.
+
+        Attributes
+        ----------
+        GSMS : dict
+            A dictionary of GSM class instances containing all data and information on the given GSM id
+            Example:
+                class_instance.GSMS['GSM000005']
+                Will return the GSM object for 'GSM000005' which is expected to be associated with the GSE used to
+                create "class_instance"
+        info : pd.Series
+            A pandas series where each index is a information title and the value is the actuatl information as it
+            appear on the GSE card on NCBI
+        no_data_GSMS : List[str]:
+            If there is missing data or courrpted GSM's that for some reason did not get rendered properly their id will
+            appear in this list.
+        Methods
+        -------
+        __init__(gse_id, mode, overwrite_cache=False, n_threads=1, remove_gsm_caches=True,shell_only=False):
+            gse_id : str
+                the GSE identifier as it appears on a NCBI (https://www.ncbi.nlm.nih.gov/geo/) page.
+            mode : str
+                the mode variable has to be one of : ["per_gsm","supp"] where the mode selected will control
+                what approach will be used when extracting methylation data for each GSM associated with the selected GSE.
+
+                1) "per_gsm": if per_gsm is used as the "mode" the data extraction will be done by activating the
+                 __init__ method for each one of the GSM's in the GSE, this might be slower as for each GSM the __init__
+                 might have to parse idat value individually which might take more time if dealing with a GSE with a large
+                 number of samples but might be much more optimal in the case of a small sample GSE.
+                2) "supp" : if supp is used as the "mode" you will be prompted to select one of the supplementary files as
+                they appear on the GSE card, that supplementary file will than be downloaded, parsed from idat to beta if
+                needed and loaded to each GSM instance in that class. When dealing with large GSE's that have only idat
+                values available this would be the optimal approach in terms of processing time.
+
+            overwrite_cache: bool (default False)
+                This variable control whether to read from cache or to download the data and overwrite the old cache
+
+            n_threads : int (default 1)
+                This variable controls the number of threads used when downloading per GSM data ("per_gsm" mode is selected)
+
+            remove_gsm_caches : bool (default True)
+                This variable controls whether to remove the cached file generate for each GSM rendered, by default the GSM
+                class saves a cached version of itself after being initiated for the first time, most of the time this cache
+                might be useless as the GSE class create's its own cache after being initiated for the first time and that
+                cache file contains a GSM class instance for each GSM in that GSE.
+
+           shell_only : bool (default False)
+               If True than only the card information will be extracted i.e methylation beta values extraction will be
+               skipped.
+
+        store_cache():
+            This method Caches the current instance's status in memory for future loading.
+            This method is ran automatically on first initialization of a class with a GSM id
+        load_cache():
+           This method load a cache version of a GSM class instance based on the gsm_id attribute.
+        """
     def __init__(self, gse_id, mode, overwrite_cache=False, n_threads=1, remove_gsm_caches=True,shell_only=False):
+        """
+            :param gse_id : str
+                the GSE identifier as it appears on a NCBI (https://www.ncbi.nlm.nih.gov/geo/) page.
+            :param mode : str
+                the mode variable has to be one of : ["per_gsm","supp"] where the mode selected will control
+                what approach will be used when extracting methylation data for each GSM associated with the selected GSE.
+
+                1) "per_gsm": if per_gsm is used as the "mode" the data extraction will be done by activating the
+                 __init__ method for each one of the GSM's in the GSE, this might be slower as for each GSM the __init__
+                 might have to parse idat value individually which might take more time if dealing with a GSE with a large
+                 number of samples but might be much more optimal in the case of a small sample GSE.
+                2) "supp" : if supp is used as the "mode" you will be prompted to select one of the supplementary files as
+                they appear on the GSE card, that supplementary file will than be downloaded, parsed from idat to beta if
+                needed and loaded to each GSM instance in that class. When dealing with large GSE's that have only idat
+                values available this would be the optimal approach in terms of processing time.
+
+            :param overwrite_cache: bool (default False)
+                This variable control whether to read from cache or to download the data and overwrite the old cache
+
+            :param n_threads : int (default 1)
+                This variable controls the number of threads used when downloading per GSM data ("per_gsm" mode is selected)
+
+            :param remove_gsm_caches : bool (default True)
+                This variable controls whether to remove the cached file generate for each GSM rendered, by default the GSM
+                class saves a cached version of itself after being initiated for the first time, most of the time this cache
+                might be useless as the GSE class create's its own cache after being initiated for the first time and that
+                cache file contains a GSM class instance for each GSM in that GSE.
+
+           :param shell_only : bool (default False)
+               If True than only the card information will be extracted i.e methylation beta values extraction will be
+               skipped.
+
+        """
         self.gse_id = gse_id
         if self.is_cached() and not overwrite_cache:
             self.load_cache()
@@ -174,6 +264,17 @@ class GSE:
             itr.set_postfix({'Last GSM Extracted': '|'.join(gsms)})
 
     def __download_csv_gz(self, file_name, selection):
+        """
+        This function will download extract and render a CSV supplementary file from a GSE card, this function
+        is used in "supp" mode in the "__populate_class" method.
+        Note, that the function assumes that the CSV chosen is both compressed into a GZ file (file_name.csv.gz)
+        and that the CSV itself contain N columns where N equals the number of GSM's associated to the GSE under
+        creation and the rows are equal to the number of probes in the array type, each column will be than assigned
+        as the methylation data portion in each GSM instance in the object.
+        :param file_name: the name of the file as it appears on the GSE card
+        :param selection: the http/ftp url link for the file
+        :return:
+        """
         # download the sup file
         wget.download(selection, out=CACHE_FOLDER + file_name, bar=progress_bar)
         # unzip file
@@ -197,7 +298,13 @@ class GSE:
         shutil.rmtree(CACHE_FOLDER + temp_folder_name + '/', )
 
     def __download_tar(self, file_name, selection):
-
+        """
+        This function will download extract and render a tar file that contains idat files for each GSM
+        as it appears on the supplementary section at the  GSE card.
+        :param file_name: the name of the file as it appears on the GSE card
+        :param selection: the http/ftp url link for the file
+        :return:
+        """
         if file_name not in os.listdir(CACHE_FOLDER):
             # download the sup file
             wget.download(selection, out=CACHE_FOLDER + file_name, bar=progress_bar)
@@ -225,6 +332,11 @@ class GSE:
         shutil.rmtree(CACHE_FOLDER + temp_folder_name + '/')
 
     def __prompt_to_select_supp_file(self):
+        """
+        This is a utility function used to load the list of the supplementary files associated to a given GSE
+        and prompt the user to select one of them as the data source for each GSM
+        :return:
+        """
         supp_files = self.info['supplementary_file'] if type(self.info['supplementary_file']) != str \
             else [self.info['supplementary_file']]
         print('Please Select a Supplementary File to Download and Parse:\n')
@@ -236,6 +348,13 @@ class GSE:
         return file_name, supp_files[selection - 1]
 
     def __thread_extraction(self, gsm_id, shell_only=False):
+        """
+        This function uses multiple threads to populate the GSE instance with the GSM objects for each GSM id associated
+        with the GSE
+        :param gsm_id:
+        :param shell_only:
+        :return:
+        """
         exhaust = 0
         while exhaust < 4:
             try:
@@ -304,15 +423,31 @@ class GSE:
             raise ValueError('Bad section typed given, please user info / data as your section parameter')
 
     def __len__(self):
+        """
+        Will return the number of GSM's loaded and available in the current object
+        :return:
+        """
         return len(self.GSMS)
 
     def __getitem__(self, gsm_id):
+        """
+        Given a gsm_id that is associated to GSE used to create this object, return a GSM object instance that matches
+        the given gsm_id
+        :param gsm_id: str
+            a gsm_id that matches one of the GSM's associated with the GSE id of the instance
+        :return: GSM
+        """
         if gsm_id in self.GSMS:
             return self.GSMS[gsm_id]
         else:
             raise IndexError(f'{gsm_id} is not in {self.gse_id}')
 
     def __repr__(self):
+        """
+        Use an easy and intuitive colored representation to summarize the main parts of the information given on
+        the GSE card page.
+        :return:
+        """
         str_fmt = "GSE: {}\nArray Type: {} ({})\nNumber of Samples: {}\nTitle: {}\n".format( \
             colored(self.gse_id, color='green', attrs=['bold']),
             colored(self.info['platform_id'], color='green', attrs=['bold']),
