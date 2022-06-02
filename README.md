@@ -19,7 +19,7 @@
   <h2 align="center">PyNCBI</h2>
 
   <p align="center">
-    Simple API for Python Integration with NCBI  .
+    Simple API for Python Integration with  <a href=https://www.ncbi.nlm.nih.gov/geo/query/><strong>NCBI »</strong></a>  .
     <br />
     <a href="https://pyncbi.readthedocs.io/"><strong>Explore the docs »</strong></a>
     <br />
