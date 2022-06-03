@@ -186,6 +186,9 @@ class GSM:
             str_fmt = str_fmt + key + \
                       f":  {colored(self.characteristics[key], color='green', attrs=['bold'])}\n"
 
+        print(str_fmt)
+        return ""
+
     def __str__(self):
         str_fmt = f'GSM: {self.gsm_id} | GSE: {self.gse}\n'
         for key in self.characteristics.index:
