@@ -455,7 +455,7 @@ class GSE:
             colored(len(self.GSMS), color='green', attrs=['bold']),
             colored(self.info['title'], color='green', attrs=['bold']))
         print(str_fmt)
-
+        return ''
     def __str__(self):
         str_fmt = "GSE: {}\nArray Type: {} ({})\nNumber of Samples: {}\nTitle: {}\n".format( \
             self.gse_id, self.info['platform_id'],
