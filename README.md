@@ -83,7 +83,7 @@ The GSM class contains the following attributes:
   * **data** - a Pandas DataFrame containing the probes and matching beta values
   * **characteristics** - the parsed characteristics section from the GSM info section
 
-#####  Single GSM API
+###  Single GSM API
 ```py
 from PyNCBI import GSM
 
@@ -99,7 +99,7 @@ Sex:  Male
 age:  77
 ```
 
-#####  Single GSE API
+### Single GSE API
 Create a GSE class instance that contains all the information on a given
 GSE id, the instance is populated with instances of the GSM class that cointains
 the methylation data and information for each GSM in the given GSE.
