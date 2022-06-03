@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PyNCBI.Utilities module &mdash; PyNCBI 0.1.5.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="PyNCBI.GSM module" href="PyNCBI.GSM.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PyNCBI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.Constants.html">PyNCBI.Constants module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.FileUtilities.html">PyNCBI.FileUtilities module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.GEOReader.html">PyNCBI.GEOReader module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.GSE.html">PyNCBI.GSE module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.GSM.html">PyNCBI.GSM module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">PyNCBI.Utilities module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PyNCBI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>PyNCBI.Utilities module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/PyNCBI.Utilities.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-PyNCBI.Utilities">
+<span id="pyncbi-utilities-module"></span><h1>PyNCBI.Utilities module<a class="headerlink" href="#module-PyNCBI.Utilities" title="Permalink to this headline"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.chunkify">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">chunkify</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lst</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.chunkify" title="Permalink to this definition"></a></dt>
+<dd><p>Yield successive n-sized chunks from lst.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.compress_and_store">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">compress_and_store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.compress_and_store" title="Permalink to this definition"></a></dt>
+<dd><p>this function will compress the information passed in the data variable and store it in path
+:param data:
+:param path:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.download_gsm_data">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">download_gsm_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gsm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_file_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.download_gsm_data" title="Permalink to this definition"></a></dt>
+<dd><p>This function will download the methylation data present on the GSM card depending on that cards methylation
+data status
+:param gsm: the target GSM id
+:to_path: the path in which the downloaded data will be saved, default is local downloads folder
+:return_file_names: wheter to return the saved files names or not
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.get_data_locally">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">get_data_locally</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">link</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.get_data_locally" title="Permalink to this definition"></a></dt>
+<dd><p>this function will download the file provided in the link variable, the link url should be a byte string and be
+the actual location of the file on a server, meaning that a get request will retrieve that file
+:param link: a link the file
+:return: a string containing the test in the file</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.gse_of_gsm">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">gse_of_gsm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gsm_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.gse_of_gsm" title="Permalink to this definition"></a></dt>
+<dd><p>This function takes a GSM number and uses NCBI INFO PAGE to retrive the appropriate GSE number</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.gsm_data_file_table_start">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">gsm_data_file_table_start</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gsm_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.gsm_data_file_table_start" title="Permalink to this definition"></a></dt>
+<dd><p>this function takes a text file with methylation array data and find the the line on which the data start
+i.e skips the headers, formally the data start when ID_REF and VALUE are present in the line
+:param gsm_file:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.gsm_page_data_status">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">gsm_page_data_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gsm</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.gsm_page_data_status" title="Permalink to this definition"></a></dt>
+<dd><p>This function checks the format of data availability a GSM card has, it can be either the data is present
+on page, meaning all the probe values can be extracted from the card itself,
+or there can be idat files (red and green) which need to be than parsed via an idat reader.
+In some cases there is no data available in which case the appropriate response will return</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>0 - Data on page,</dt><dd><p>1 - IDAT files,</p>
+</dd>
+</dl>
+<p>-1 - no data available</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.gsms_from_gse_soft">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">gsms_from_gse_soft</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gse_soft_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.gsms_from_gse_soft" title="Permalink to this definition"></a></dt>
+<dd><p>This function extract the list of all GSMS associated with a GSE based on the gse’s
+“soft” text file as it is on NCBI</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.gunzip_shutil">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">gunzip_shutil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_filepath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_filepath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">65536</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.gunzip_shutil" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.is_info_dataframe_in_downloads">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">is_info_dataframe_in_downloads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gse</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.is_info_dataframe_in_downloads" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.load_and_decompress">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">load_and_decompress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.load_and_decompress" title="Permalink to this definition"></a></dt>
+<dd><p>this function will load the compressed file saved at path and decompress it
+:param path:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.parse_and_compress_gse_info">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">parse_and_compress_gse_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gse_soft_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.parse_and_compress_gse_info" title="Permalink to this definition"></a></dt>
+<dd><p>This function accepts text as it appears on a GSE’s card soft file and outputs a pandas Series where each index
+is an info parameter and the value is the corresponding information as it appears on the GSE’s card
+:param gse_soft_file:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.parse_characteristics">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">parse_characteristics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">char_section</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.parse_characteristics" title="Permalink to this definition"></a></dt>
+<dd><p>This function will take in a characteristics_ch1 section from a GSM soft format
+and split it into a dataframe where each column is a characteristic
+:param char_section: characteristics_ch1 section string
+:param indices: the index value of the returned DataFrame (optional)
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.platform_of_gsm">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">platform_of_gsm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gsm_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.platform_of_gsm" title="Permalink to this definition"></a></dt>
+<dd><p>This function takes a GSM number and uses NCBI INFO PAGE to retrive the platform type (chip type)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.progress_bar">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">progress_bar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">current</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">80</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.progress_bar" title="Permalink to this definition"></a></dt>
+<dd><p>This function is a utility for wget download function
+:param current:
+:param total:
+:param width:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.remove_non_idat_files">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">remove_non_idat_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.remove_non_idat_files" title="Permalink to this definition"></a></dt>
+<dd><p>this function will remove all non .idat files from a given folder
+if a file is a zipped idat file it will unzip it and remove zipped version
+:param folder_path:
+:return:</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities.unzip_tarfile">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.Utilities.</span></span><span class="sig-name descname"><span class="pre">unzip_tarfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_folder</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities.unzip_tarfile" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNCBI.Utilities">
+<span class="sig-prename descclassname"><span class="pre">PyNCBI.</span></span><span class="sig-name descname"><span class="pre">Utilities</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.Utilities" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="PyNCBI.GSM.html" class="btn btn-neutral float-left" title="PyNCBI.GSM module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Thomas Konstantinovsky.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

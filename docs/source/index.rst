@@ -19,6 +19,13 @@ relevant data.
    :maxdepth: 2
    :caption: Contents:
 
+   PyNCBI.Constants.rst
+   PyNCBI.FileUtilities.rst
+   PyNCBI.GEOReader.rst
+   PyNCBI.GSE.rst
+   PyNCBI.GSM.rst
+   PyNCBI.Utilities.rst
+
 
 Installation
 **********************

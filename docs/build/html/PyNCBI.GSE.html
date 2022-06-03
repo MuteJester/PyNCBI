@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PyNCBI.GSE module &mdash; PyNCBI 0.1.5.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PyNCBI.GSM module" href="PyNCBI.GSM.html" />
+    <link rel="prev" title="PyNCBI.GEOReader module" href="PyNCBI.GEOReader.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> PyNCBI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.Constants.html">PyNCBI.Constants module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.FileUtilities.html">PyNCBI.FileUtilities module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.GEOReader.html">PyNCBI.GEOReader module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">PyNCBI.GSE module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.GSM.html">PyNCBI.GSM module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNCBI.Utilities.html">PyNCBI.Utilities module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PyNCBI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>PyNCBI.GSE module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/PyNCBI.GSE.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-PyNCBI.GSE">
+<span id="pyncbi-gse-module"></span><h1>PyNCBI.GSE module<a class="headerlink" href="#module-PyNCBI.GSE" title="Permalink to this headline"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNCBI.GSE.GSE">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">PyNCBI.GSE.</span></span><span class="sig-name descname"><span class="pre">GSE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gse_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_gsm_caches</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shell_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.GSE.GSE" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A class to represent a single GSM entity.
+The class contains all information and data regarding a single GSM as well as various
+functionality for simple work and management and manipulation of GSM entities.</p>
+<dl>
+<dt>GSMS<span class="classifier">dict</span></dt><dd><p>A dictionary of GSM class instances containing all data and information on the given GSM id
+Example:</p>
+<blockquote>
+<div><p>class_instance.GSMS[‘GSM000005’]
+Will return the GSM object for ‘GSM000005’ which is expected to be associated with the GSE used to
+create “class_instance”</p>
+</div></blockquote>
+</dd>
+<dt>info<span class="classifier">pd.Series</span></dt><dd><p>A pandas series where each index is a information title and the value is the actuatl information as it
+appear on the GSE card on NCBI</p>
+</dd>
+<dt>no_data_GSMS<span class="classifier">List[str]:</span></dt><dd><p>If there is missing data or courrpted GSM’s that for some reason did not get rendered properly their id will
+appear in this list.</p>
+</dd>
+</dl>
+<dl>
+<dt>__init__(gse_id, mode, overwrite_cache=False, n_threads=1, remove_gsm_caches=True,shell_only=False):</dt><dd><blockquote>
+<div><dl>
+<dt>gse_id<span class="classifier">str</span></dt><dd><p>the GSE identifier as it appears on a NCBI (<a class="reference external" href="https://www.ncbi.nlm.nih.gov/geo/">https://www.ncbi.nlm.nih.gov/geo/</a>) page.</p>
+</dd>
+<dt>mode<span class="classifier">str</span></dt><dd><p>the mode variable has to be one of : [“per_gsm”,”supp”] where the mode selected will control
+what approach will be used when extracting methylation data for each GSM associated with the selected GSE.</p>
+<ol class="arabic simple">
+<li><p>“per_gsm”: if per_gsm is used as the “mode” the data extraction will be done by activating the</p></li>
+</ol>
+<blockquote>
+<div><p>__init__ method for each one of the GSM’s in the GSE, this might be slower as for each GSM the __init__
+might have to parse idat value individually which might take more time if dealing with a GSE with a large
+number of samples but might be much more optimal in the case of a small sample GSE.</p>
+</div></blockquote>
+<p>2) “supp” : if supp is used as the “mode” you will be prompted to select one of the supplementary files as
+they appear on the GSE card, that supplementary file will than be downloaded, parsed from idat to beta if
+needed and loaded to each GSM instance in that class. When dealing with large GSE’s that have only idat
+values available this would be the optimal approach in terms of processing time.</p>
+</dd>
+<dt>overwrite_cache: bool (default False)</dt><dd><p>This variable control whether to read from cache or to download the data and overwrite the old cache</p>
+</dd>
+<dt>n_threads<span class="classifier">int (default 1)</span></dt><dd><p>This variable controls the number of threads used when downloading per GSM data (“per_gsm” mode is selected)</p>
+</dd>
+<dt>remove_gsm_caches<span class="classifier">bool (default True)</span></dt><dd><p>This variable controls whether to remove the cached file generate for each GSM rendered, by default the GSM
+class saves a cached version of itself after being initiated for the first time, most of the time this cache
+might be useless as the GSE class create’s its own cache after being initiated for the first time and that
+cache file contains a GSM class instance for each GSM in that GSE.</p>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="simple">
+<dt>shell_only<span class="classifier">bool (default False)</span></dt><dd><p>If True than only the card information will be extracted i.e methylation beta values extraction will be
+skipped.</p>
+</dd>
+</dl>
+</dd>
+<dt>store_cache():</dt><dd><p>This method Caches the current instance’s status in memory for future loading.
+This method is ran automatically on first initialization of a class with a GSM id</p>
+</dd>
+<dt>load_cache():</dt><dd><p>This method load a cache version of a GSM class instance based on the gsm_id attribute.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNCBI.GSE.GSE.is_cached">
+<span class="sig-name descname"><span class="pre">is_cached</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.GSE.GSE.is_cached" title="Permalink to this definition"></a></dt>
+<dd><p>This method checks if this GSE has previously been loaded and cached in memory
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNCBI.GSE.GSE.load_cache">
+<span class="sig-name descname"><span class="pre">load_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.GSE.GSE.load_cache" title="Permalink to this definition"></a></dt>
+<dd><p>This method will load cached instance of the given gse_id
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNCBI.GSE.GSE.remove_gsm_cache">
+<span class="sig-name descname"><span class="pre">remove_gsm_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.GSE.GSE.remove_gsm_cache" title="Permalink to this definition"></a></dt>
+<dd><p>This function will remove individual GSM file caches from the local .cache folder this will leave
+all the information cached and encapsulated as a single GSE cache that contains a list of GSM objects
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNCBI.GSE.GSE.store_cache">
+<span class="sig-name descname"><span class="pre">store_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.GSE.GSE.store_cache" title="Permalink to this definition"></a></dt>
+<dd><p>This method will cache all class attributes
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNCBI.GSE.GSE.to_dataframe">
+<span class="sig-name descname"><span class="pre">to_dataframe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">section</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNCBI.GSE.GSE.to_dataframe" title="Permalink to this definition"></a></dt>
+<dd><p>This function accepts a single parameter “section”, depending on the parameter value the function will
+return a pandas dataframe with one of two contents.
+if section == “info” then the returned dataframe will contain the information from all the individual GSMS
+as a single object where the indecies of this dataframe are the information key name and the columns are
+named after the GSMS, i.e there will be N columns where N is the number of GSM’s in the corresponding GSE
+:param section: str, one of two values info/data.</p>
+<p>if section == ‘data’ then the function will return a dataframe that contains the methylation value for all
+relevant cpg cites for this GSE.
+the returned data frame will have K indices where the length of K is equal to the number of cpg cites in the
+GSE’s array type, and the values of K are the cpg id’s eg. (cpg0000027)
+:return:</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="PyNCBI.GEOReader.html" class="btn btn-neutral float-left" title="PyNCBI.GEOReader module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="PyNCBI.GSM.html" class="btn btn-neutral float-right" title="PyNCBI.GSM module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Thomas Konstantinovsky.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
