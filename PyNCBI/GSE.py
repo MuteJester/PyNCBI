@@ -5,7 +5,7 @@ import pandas as pd
 import wget
 from PyNCBI.FileUtilities import parse_idat_files
 from termcolor import colored
-from PyNCBI import GSM
+from PyNCBI.GSM import GSM
 from PyNCBI.Constants import NCBI_QUERY_URL, CACHE_FOLDER, ARRAY_TYPES
 from tqdm.auto import tqdm
 from threading import Thread

@@ -9,7 +9,7 @@ except ImportError:
 setup(
   name = 'PyNCBI',
   packages = ['PyNCBI'],
-  version = '0.1.5.1',
+  version = '0.1.5.4',
   license='MIT',
   description = 'Simple API for Python Integration with NCBI',
   long_description_content_type="text/markdown",
@@ -17,13 +17,14 @@ setup(
   author = 'Thomas Konstantinovsky',
   author_email = 'thomaskon90@gmail.com',
   url = 'https://github.com/MuteJester/PyNCBI',
-  download_url = 'https://github.com/MuteJester/PyNCBI/archive/refs/tags/v0.1.5.1.tar.gz',
+  download_url = 'https://github.com/MuteJester/PyNCBI/archive/refs/tags/0.1.5.4.tar.gz',
   keywords = ['api','data database','analytics,biology','methylation','epigenetics','ncbi','epigenetic-data'],   # Keywords that define your package best
     install_requires=[
         'methylprep',
         'wget',
         'tqdm',
-        'pandas'
+        'pandas',
+        'termcolor',
     ],
   classifiers=[
     'Development Status :: 3 - Alpha',
