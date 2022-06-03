@@ -128,6 +128,41 @@ Sex:  Male
 age:  77
 ```
 
+#####  Single GSE API
+Create a GSE class instance that contains all the information on a given
+GSE id, the instance is populated with instances of the GSM class that cointains
+the methylation data and information for each GSM in the given GSE.
+```py
+from PyNCBI import GSE
+
+# Build and populate with data an instance of a GSE container
+example_gse = GSE('GSE85506',mode='supp')
+print(example_gse)
+```
+Output:
+```
+GSE: GSE85506
+Array Type: GPL13534 (450k)
+Number of Samples: 47
+Title: DNA methylation analysis in women with fibromyalgia
+```
+Inside each GSE object is a dictionary of GSM objects
+Example:
+```py
+example_gse["GSM2267972"]
+# the above returns the GSM obeject that matches that id given
+```
+Output:
+```
+GSM: GSM2267972         | GSE: GSE85506
+tissue:  peripheral blood
+gender:  female
+group:  case
+age:  56
+inhibition (average values):  1.586085
+facilitation values (average):  2.60410125
+```
+
 ### Currently Supported Data Features
   * __GSE Wise Card Information Extraction__
   * __GSM Card Information Extraction__
@@ -135,7 +170,7 @@ age:  77
   * __GSM Card Methylation Data Extraction__
   * __IDAT File Parsing Management Based on methylprep__
   * __Single GSM API__
-
+  * __Single GSE API__
  
 
 
