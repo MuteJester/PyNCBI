@@ -64,14 +64,6 @@ pip install PyNCBI
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-#####  Parsing IDAT files
-
-```py
-from PyNCBI import parse_idat_files
-
-# Beta Values will be stored in a parquet file in path
-parse_idat_files("Path_To_IDAT_FILES/", 'array_type')
-```
 
 ### GSM
 The GSM API extracts all info from a GSM card and downloads the methylation data, and renders the beta values ready for work.
@@ -133,6 +125,7 @@ age:  56
 inhibition (average values):  1.586085
 facilitation values (average):  2.60410125
 ```
+
 
 ### Currently Supported Data Features
   * __GSE Wise Card Information Extraction__
