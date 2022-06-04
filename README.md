@@ -66,6 +66,8 @@ pip install PyNCBI
 
 
 ### GSM
+<img src="PyNCBI/Repo%20Misc/GSM_Structure.png" alt="Logo" width="300" height="230">
+
 The GSM API extracts all info from a GSM card and downloads the methylation data, and renders the beta values ready for work.
 After extracting and preprocessing the data once, that GSM instance will be cached for your convenience; each following time, you will reference the same GSM id the cached version will be loaded.
 The GSM class contains the following attributes:
@@ -91,10 +93,16 @@ Sex:  Male
 age:  77
 ```
 
-### Single GSE API
+### GSE
+<img src="PyNCBI/Repo%20Misc/GSE_Structure.png" alt="Logo" width="550" height="230">
+
 Create a GSE class instance that contains all the information on a given
 GSE id, the instance is populated with instances of the GSM class that cointains
 the methylation data and information for each GSM in the given GSE.
+The GSE class contains the following attributes:
+  * **info** - a Pandas Series contacting the entire GSE card information
+  * **GSMS** - a dictionary, string ('gsm id') to a GSM object instance reference
+#### Single GSE API
 ```py
 from PyNCBI import GSE
 
