@@ -121,7 +121,7 @@ Inside each GSE object is a dictionary of GSM objects
 Example:
 ```py
 example_gse["GSM2267972"]
-# the above returns the GSM obeject that matches that id given
+# the above returns the GSM obeject that matches the id given i.e "GSM2267972"
 ```
 Output:
 ```
