@@ -184,9 +184,12 @@ class GSE:
                 # tqdm iterator
                 itr = tqdm(gsm_ids, leave=False, position=0)
                 for gsm in itr:
-                    # extract per GSM information using the "GSM" object
-                    self.GSMS[gsm] = GSM(gsm)
-                    itr.set_postfix({'Last GSM Extracted': gsm})
+                    try:
+                        # extract per GSM information using the "GSM" object
+                        self.GSMS[gsm] = GSM(gsm)
+                        itr.set_postfix({'Last GSM Extracted': gsm})
+                    except Exception as e:
+                        print(f'An error occurred while trying to download {gsm}')
             else:
                 # pool = ThreadPool(processes=n_threads)
                 # gsm_ids = list(chunkify(self.GSMS, n_threads))
@@ -231,11 +234,12 @@ class GSE:
             if '.csv.gz' in file_name:
                 # csv flow
                 self.__download_csv_gz(file_name, selection)
+            elif '.txt.gz' in file_name:
+                self.__download_txt_gz(file_name, selection)
             elif '.tar' in file_name and '.gz' not in file_name:
                 self.__download_tar(file_name, selection)
-
-            # remove downloaded file
-            os.remove(CACHE_FOLDER+file_name)
+                # remove downloaded file
+                os.remove(CACHE_FOLDER+file_name)
 
         else:
             raise ValueError("Invalid mode passed")
@@ -275,8 +279,9 @@ class GSE:
         :param selection: the http/ftp url link for the file
         :return:
         """
-        # download the sup file
-        wget.download(selection, out=CACHE_FOLDER + file_name, bar=progress_bar)
+        if file_name not in os.listdir(CACHE_FOLDER):
+            # download the sup file
+            wget.download(selection, out=CACHE_FOLDER + file_name, bar=progress_bar)
         # unzip file
         temp_folder_name = str(uuid4()) + '/'
         os.makedirs(CACHE_FOLDER + temp_folder_name)
@@ -289,7 +294,43 @@ class GSE:
         data_ = pd.read_csv(CACHE_FOLDER + temp_folder_name + file_name[:-3], index_col=0)
         for column in data_.columns:
             for gsm in self.GSMS:
-                if self.GSMS[gsm].info['title'] == column:
+                if column in self.GSMS[gsm].info['title']:
+                    # attach data to GSM object from downloaded csv
+                    self.GSMS[gsm].data = data_[column]
+                    # rename Series title to GSM id
+                    self.GSMS[gsm].data.name = gsm
+        # remove temp folder
+        shutil.rmtree(CACHE_FOLDER + temp_folder_name + '/', )
+
+    def __download_txt_gz(self, file_name, selection):
+        """
+        This function will download extract and render a CSV supplementary file from a GSE card, this function
+        is used in "supp" mode in the "__populate_class" method.
+        Note, that the function assumes that the table chosen is both compressed into a GZ file (file_name.txt.gz)
+        and that the CSV itself contain N columns where N equals the number of GSM's associated to the GSE under
+        creation and the rows are equal to the number of probes in the array type, each column will be than assigned
+        as the methylation data portion in each GSM instance in the object.
+        :param file_name: the name of the file as it appears on the GSE card
+        :param selection: the http/ftp url link for the file
+        :return:
+        """
+
+        if file_name not in os.listdir(CACHE_FOLDER):
+            # download the sup file
+            wget.download(selection, out=CACHE_FOLDER + file_name, bar=progress_bar)
+        # unzip file
+        temp_folder_name = str(uuid4()) + '/'
+        os.makedirs(CACHE_FOLDER + temp_folder_name)
+        # unpack and delete zipped version
+        gunzip_shutil(CACHE_FOLDER + file_name, CACHE_FOLDER + temp_folder_name + file_name[:-3])
+        # delete zipped file
+        os.remove(CACHE_FOLDER + file_name)
+
+        # load data into GSM's objects
+        data_ = pd.read_table(CACHE_FOLDER + temp_folder_name + file_name[:-3], index_col=0,sep='\t')
+        for column in data_.columns:
+            for gsm in self.GSMS:
+                if column in self.GSMS[gsm].info['title']:
                     # attach data to GSM object from downloaded csv
                     self.GSMS[gsm].data = data_[column]
                     # rename Series title to GSM id
