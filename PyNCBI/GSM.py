@@ -160,9 +160,9 @@ class GSM:
         processed_data = dict()
         for r in data:
             # skip anomalies
-            if len(r.split('=')) != 2:
+            if len(r.split('=',1)) != 2:
                 continue
-            k, v = r.split('=')
+            k, v = r.split('=',1)
             k = k.strip()
             v = v.strip()
             if k in processed_data:
