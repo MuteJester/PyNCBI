@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta
 from fnmatch import fnmatch
 from pathlib import Path, PurePath
 from tempfile import NamedTemporaryFile
+from threading import Lock
 from typing import Any, Generic, TypeVar, cast
 
 import numpy as np
@@ -28,6 +29,10 @@ T = TypeVar("T")
 
 _TAG = "__pyncbi__"
 LEGACY_EXTENSION = ".ch"
+# Windows cannot replace a destination while another thread has it open. Share
+# the short file-access critical sections across LocalCache instances; encoding
+# and compression stay outside the lock.
+_FILE_LOCK = Lock()
 
 
 def _axis_value(axis: pd.Index) -> dict[str, Any]:
@@ -221,7 +226,9 @@ class LocalCache(Generic[T]):
         return sorted(self.cache_dir.glob(f"*{self.EXTENSION}"))
 
     def _read(self, path: Path) -> T:
-        raw = gzip.decompress(path.read_bytes()).decode("utf-8")
+        with _FILE_LOCK:
+            compressed = path.read_bytes()
+        raw = gzip.decompress(compressed).decode("utf-8")
         return decode_cache_value(json.loads(raw))  # type: ignore[no-any-return]
 
     def get(self, key: str) -> T | None:
@@ -256,7 +263,8 @@ class LocalCache(Generic[T]):
             ) as staging:
                 tmp = Path(staging.name)
                 staging.write(gzip.compress(payload))
-            tmp.replace(path)
+            with _FILE_LOCK:
+                tmp.replace(path)
         except Exception as e:
             if tmp is not None:
                 tmp.unlink(missing_ok=True)
@@ -269,10 +277,11 @@ class LocalCache(Generic[T]):
     def delete(self, key: str) -> bool:
         """Delete cached item (including any legacy pickle entry of the same key)."""
         removed = False
-        for path in (self._key_to_path(key), self.cache_dir / f"{key}{LEGACY_EXTENSION}"):
-            if path.exists():
-                path.unlink()
-                removed = True
+        with _FILE_LOCK:
+            for path in (self._key_to_path(key), self.cache_dir / f"{key}{LEGACY_EXTENSION}"):
+                if path.exists():
+                    path.unlink()
+                    removed = True
         return removed
 
     def clear(self, pattern: str = "*") -> int:
@@ -282,14 +291,15 @@ class LocalCache(Generic[T]):
             Number of files deleted
         """
         count = 0
-        for path in self._iter_paths():
-            if fnmatch(self._path_to_key(path), pattern):
-                path.unlink()
-                count += 1
-        for path in self.cache_dir.glob(f"*{LEGACY_EXTENSION}"):
-            if fnmatch(path.stem, pattern):
-                path.unlink()
-                count += 1
+        with _FILE_LOCK:
+            for path in self._iter_paths():
+                if fnmatch(self._path_to_key(path), pattern):
+                    path.unlink()
+                    count += 1
+            for path in self.cache_dir.glob(f"*{LEGACY_EXTENSION}"):
+                if fnmatch(path.stem, pattern):
+                    path.unlink()
+                    count += 1
         return count
 
     def list_keys(self, pattern: str = "*") -> list[str]:

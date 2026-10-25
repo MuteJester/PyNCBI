@@ -250,8 +250,15 @@ def test_empty_injected_cache_is_used_and_concurrent_writes_are_atomic(study, cl
     cache = LocalCache(tmp_path)
     GSE("GSE1", shell_only=True, _http_client=client, _cache=cache)
     assert "GSE1" in cache.list_keys()
+    caches = [LocalCache(tmp_path) for _ in range(8)]
+
+    def roundtrip(n):
+        shared = caches[n % len(caches)]
+        shared.set("shared", {"value": n})
+        assert shared.get("shared")["value"] in range(40)
+
     with ThreadPoolExecutor(max_workers=8) as pool:
-        list(pool.map(lambda n: cache.set("shared", {"value": n}), range(40)))
+        list(pool.map(roundtrip, range(40)))
     assert cache.get("shared")["value"] in range(40)
     assert not list(tmp_path.glob("*.part"))
 

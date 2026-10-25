@@ -127,7 +127,7 @@ def test_the_audit_log_stays_parseable_when_many_threads_write(tmp_path):
     from PyNCBI.io.telemetry import ClientMetrics, RequestEvent
 
     audit_path = tmp_path / "audit.jsonl"
-    metrics = ClientMetrics(audit_path=audit_path)
+    clients = [ClientMetrics(audit_path=audit_path) for _ in range(WORKERS)]
     events = 60
     # A long URL makes a short line impossible, so any interleaving shows up.
     long_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?id=" + ",".join(
@@ -135,7 +135,7 @@ def test_the_audit_log_stays_parseable_when_many_threads_write(tmp_path):
     )
 
     def record(index: int) -> None:
-        metrics.record(
+        clients[index % WORKERS].record(
             RequestEvent(
                 method="GET",
                 realm="eutils",
@@ -157,4 +157,7 @@ def test_the_audit_log_stays_parseable_when_many_threads_write(tmp_path):
             json.loads(line)
         except json.JSONDecodeError as exc:  # pragma: no cover - the failure we are hunting
             pytest.fail(f"audit line {number} is not valid JSON ({exc}): {line[:120]}...")
-    assert metrics.summary(include_recent=0)["total_requests"] == events
+    assert sum(m.summary(include_recent=0)["total_requests"] for m in clients) == events
+    assert {json.loads(line)["url"].split("&seq=")[-1] for line in lines} == {
+        str(n) for n in range(events)
+    }

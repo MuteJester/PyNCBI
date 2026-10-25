@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from PyNCBI.io.response_cache import ResponseCache
 
 logger = get_logger(__name__)
+# One append must finish (including close) before another client opens the log.
+# Windows append handles can otherwise overwrite each other's end-of-file offset.
+_AUDIT_LOCK = threading.Lock()
 
 
 @dataclass
@@ -83,7 +86,7 @@ class ClientMetrics:
         entry["url"] = redact_url(str(entry.get("url", "")))
         try:
             self._audit_path.parent.mkdir(parents=True, exist_ok=True)
-            with self._audit_path.open("a", encoding="utf-8") as fh:
+            with _AUDIT_LOCK, self._audit_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(entry, default=str) + "\n")
         except OSError as exc:  # pragma: no cover - auditing must never break a request
             logger.debug("Audit log write failed: %s", exc)

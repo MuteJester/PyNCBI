@@ -72,7 +72,7 @@ def test_cache_value_codec_roundtrips_pandas_and_nested_containers():
     pd.testing.assert_frame_equal(decoded["df"], df)
     pd.testing.assert_series_equal(decoded["series"], series)
     assert decoded["list"] == [1, "a", None]
-    assert decoded["path"] == "/tmp/x"
+    assert decoded["path"] == str(value["path"])
     pd.testing.assert_frame_equal(decoded["nested"]["k"], df)
 
 

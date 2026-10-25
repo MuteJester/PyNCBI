@@ -65,7 +65,7 @@ def test_download_superseries_without_own_files_explains_subseries(fake_super, t
 
 def test_download_superseries_with_expand_fans_out_to_subseries_folders(fake_super, tmp_path):
     paths = download_geo_files("GSE900", tmp_path / "super", source="supp", expand_subseries=True)
-    names = sorted(str(p.relative_to(tmp_path / "super")) for p in paths)
+    names = sorted(p.relative_to(tmp_path / "super").as_posix() for p in paths)
     assert names == ["GSE901/GSE901_counts.tsv.gz", "GSE902/GSE902_counts.tsv.gz"]
 
 

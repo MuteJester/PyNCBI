@@ -4,6 +4,7 @@ HTTP server standing in for GEO (Config URL templates are redirected to it)."""
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -131,7 +132,7 @@ def test_cli_download_accepts_multiple_accessions_and_where(fake_geo, tmp_path, 
     )
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert sorted(p.split("/")[-1] for p in payload["saved_files"]) == [
+    assert sorted(Path(p).name for p in payload["saved_files"]) == [
         "GSM1002_Grn.idat.gz",
         "GSM1003_Grn.idat.gz",
     ]
