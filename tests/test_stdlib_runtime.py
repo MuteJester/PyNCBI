@@ -32,7 +32,23 @@ def bare_python(program, *arguments, input=None, cwd=None):
 def test_python_cli_and_mcp_import_without_site_packages(tmp_path, monkeypatch):
     monkeypatch.setenv("PYNCBI_CACHE_DIR", str(tmp_path / "cache"))
     result = bare_python(
-        "import PyNCBI, json; print(json.dumps({'version': PyNCBI.__version__, 'external': sorted(name for name in sys.modules if name.split('.')[0] not in sys.stdlib_module_names and not name.startswith('PyNCBI') and name != '__main__')}))",
+        """
+import json, sysconfig
+from pathlib import Path
+import PyNCBI
+roots = [Path(sysconfig.get_path('stdlib')).resolve(), Path(sys.argv[1]).resolve() / 'PyNCBI']
+external = []
+for name, module in list(sys.modules.items()):
+    if name == '__main__' or name.split('.')[0] in sys.stdlib_module_names:
+        continue
+    origin = getattr(getattr(module, '__spec__', None), 'origin', None)
+    if origin in ('built-in', 'frozen'):
+        continue
+    path = Path(origin).resolve() if origin else None
+    if path is None or not any(path.is_relative_to(root) for root in roots) or 'site-packages' in path.parts:
+        external.append(name)
+print(json.dumps({'version': PyNCBI.__version__, 'external': sorted(external)}))
+""",
         cwd=tmp_path,
     )
     assert json.loads(result.stdout)["external"] == []
