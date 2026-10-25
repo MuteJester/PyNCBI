@@ -25,6 +25,7 @@ def check_archives(dist: Path) -> Path:
             "PyNCBI/py.typed",
             "PyNCBI/session.pyi",
             "PyNCBI/resources/SKILL.md",
+            "PyNCBI/resources/references/workflows.md",
             "PyNCBI/resources/schemas/study.schema.json",
         ):
             if name not in names:
@@ -57,6 +58,9 @@ def check_archives(dist: Path) -> Path:
             "docs/source/migration.rst",
             "docs/source/conf.py",
             "skills/pyncbi/SKILL.md",
+            "skills/pyncbi/references/workflows.md",
+            "scripts/agent_workflow_fixture.py",
+            "tests/fixtures/agent_tasks.json",
             "assets/pyncbi-logo.svg",
         ):
             if name not in names:
@@ -91,6 +95,10 @@ def smoke(wheel: Path) -> None:
             ).stdout
 
         run("-m", "PyNCBI.cli", "--version")
+        skill_dir = root / "installed-skill"
+        run("-m", "PyNCBI.cli", "skill", "install", "--dir", str(skill_dir))
+        if not (skill_dir / "references" / "workflows.md").is_file():
+            raise SystemExit("Installed wheel did not install the skill's workflow reference")
         manifest = json.loads(run("-m", "PyNCBI.cli", "schema", "mcp"))
         if not manifest["tools"]:
             raise SystemExit("Installed wheel has no MCP tools")

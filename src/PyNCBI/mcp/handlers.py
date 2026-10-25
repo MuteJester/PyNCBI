@@ -36,6 +36,7 @@ from PyNCBI.domains.screening import screen_studies
 from PyNCBI.domains.sequencing import download_fastq, fetch_fastq_urls
 from PyNCBI.domains.variants import fetch_variants
 from PyNCBI.io.http_client import format_size_human, get_client
+from PyNCBI.mcp.validation import validate_tool_arguments
 from PyNCBI.metadata import build_study_record
 from PyNCBI.metadata.harmonize import sample_metadata_view
 from PyNCBI.metadata.serving import bounded_payload, paginate
@@ -81,6 +82,7 @@ def _argument_text(arguments: dict[str, Any], key: str, default: str | None = No
 
 def execute_mcp_tool(name: str, arguments: dict[str, Any]) -> str:
     """Execute an MCP tool call and return a context-window safe text/JSON response."""
+    validate_tool_arguments(name, arguments)
     if name == "ncbi_search":
         db = _argument_text(arguments, "db", "geo").lower().strip()
         query = _argument_text(arguments, "query")

@@ -523,7 +523,9 @@ def is_retryable(exc: BaseException) -> bool:
 def error_payload(exc: BaseException, *, command: str = "", target: str = "") -> dict[str, object]:
     """Build the structured error envelope used by `pyncbi --json` and the MCP server."""
     from PyNCBI.core.formatter import ENVELOPE_SCHEMA_VERSION, _package_version
+    from PyNCBI.core.invocation import run_snapshot
 
+    elapsed_ms, request_count = run_snapshot()
     payload: dict[str, object] = {
         "ok": False,
         "schema_version": ENVELOPE_SCHEMA_VERSION,
@@ -533,6 +535,13 @@ def error_payload(exc: BaseException, *, command: str = "", target: str = "") ->
         "error": type(exc).__name__,
         "error_code": error_code_for(exc),
         "message": redact_url(getattr(exc, "message", None) or str(exc)),
+        "summary": redact_url(getattr(exc, "message", None) or str(exc)),
+        "data": None,
+        "saved_files": [],
+        "next_steps": [],
+        "warnings": [],
+        "elapsed_ms": elapsed_ms,
+        "request_count": request_count,
         "hint": getattr(exc, "hint", None),
         "retryable": is_retryable(exc),
     }

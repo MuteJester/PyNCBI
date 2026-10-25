@@ -33,6 +33,7 @@ DOC_FILES = [
     REPO_ROOT / "docs" / "source" / "workflows.rst",
     REPO_ROOT / "docs" / "source" / "configuration.rst",
     REPO_ROOT / "docs" / "source" / "migration.rst",
+    *sorted((REPO_ROOT / "src" / "PyNCBI" / "resources" / "references").glob("*.md")),
 ]
 
 
@@ -198,3 +199,14 @@ def test_the_signature_checker_catches_a_wrong_keyword() -> None:
     good = ast.parse("PyNCBI.inspect_accession('GSE1', check_file_sizes=False)").body[0]
     assert isinstance(good, ast.Expr) and isinstance(good.value, ast.Call)
     assert _signature_problems("inspect_accession", PyNCBI.inspect_accession, good.value) == []
+
+
+def test_documented_envelope_examples_use_the_runtime_schema():
+    from PyNCBI.core.formatter import ENVELOPE_SCHEMA_VERSION
+
+    for path in DOC_FILES:
+        for version in re.findall(
+            r'"schema_version":\s*"([^"\n]+)"[^\n]*"pyncbi_version"',
+            path.read_text(encoding="utf-8"),
+        ):
+            assert version == ENVELOPE_SCHEMA_VERSION, str(path)

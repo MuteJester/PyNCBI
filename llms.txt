@@ -13,5 +13,6 @@
 - [API](https://pyncbi.readthedocs.io/en/latest/PyNCBI.html): public Python API.
 
 For the installed contract, use `pyncbi --help`, `pyncbi schema mcp`, and `pyncbi skill`.
+Connect the MCP server to your client and install its PyNCBI skill; PyPI publication does not configure agents automatically.
 Start with discovery and inspection; review `pyncbi download --dry-run` before large transfers.
 Use `--json` for envelopes and `-o` for complete files. Previews may be truncated.

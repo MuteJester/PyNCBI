@@ -80,3 +80,14 @@ Use ``error_code_for`` and ``is_retryable`` rather than matching error text. Aut
 rate-limit, transport and budget errors propagate; record-local failures remain explicit.
 GSE/GSM do not add retries over the shared client policy. Loaded accessions cannot be
 reassigned. HTTP MCP clients must initialize a session and supply its ID on later requests.
+
+Agent setup
+-----------
+
+``pyncbi skill install --target codex`` installs the complete skill under
+``~/.agents/skills/pyncbi``. The default ``all`` includes Codex, Claude and Antigravity.
+Cursor now uses ``.cursor/skills/pyncbi`` rather than copying skill frontmatter into
+``.cursor/rules/pyncbi.mdc``; remove an old rule after installing the new skill to avoid
+duplicate instructions. Custom ``--dir`` installations include supporting references.
+MCP calls now reject unknown fields and wrong JSON types rather than silently ignoring
+them. Plural Gene, PubMed, FASTA and taxonomy inputs advertise string/array alternatives.

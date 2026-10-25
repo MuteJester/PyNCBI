@@ -620,8 +620,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_skill.add_argument(
         "--target",
         default="all",
-        choices=["antigravity", "claude", "cursor", "all"],
-        help="Agent platform to install skill into (default: all)",
+        choices=["codex", "antigravity", "claude", "cursor", "all"],
+        help="Skill destination; all installs user skills for Codex, Claude and Antigravity (Cursor is project-local)",
     )
     p_skill.add_argument("--dir", help="Custom directory to write SKILL.md into")
 

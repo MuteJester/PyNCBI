@@ -85,7 +85,7 @@ version = {attr = "PyNCBI.__version__"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["py.typed", "*.pyi", "resources/*.md", "resources/*.txt", "resources/schemas/*.json"]
+"*" = ["py.typed", "*.pyi", "resources/*.md", "resources/*.txt", "resources/references/*.md", "resources/schemas/*.json"]
 
 # Ruff configuration (replaces flake8, isort, black)
 [tool.ruff]
@@ -137,10 +137,6 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-]
-filterwarnings = [
-    "ignore:np.find_common_type is deprecated:DeprecationWarning",
-    "ignore:Attribute n is deprecated:DeprecationWarning",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

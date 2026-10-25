@@ -125,7 +125,7 @@ size, exported CSV size, or total lifetime session traffic. Raw file writes chec
 pyncbi mcp                         # stdio
 pyncbi mcp --http --port 8765       # local Streamable HTTP endpoint /mcp
 pyncbi schema mcp                  # current tool, resource and prompt manifest
-pyncbi skill install               # install the bundled agent instructions
+pyncbi skill install --target codex  # or --target claude / cursor
 ```
 
 ```json
@@ -135,6 +135,17 @@ pyncbi skill install               # install the bundled agent instructions
   }
 }
 ```
+
+After installing, connect the MCP server once in your client:
+
+```bash
+codex mcp add pyncbi -- pyncbi mcp
+claude mcp add --transport stdio --scope user pyncbi -- pyncbi mcp
+```
+
+Choose the command for your client. The skill installer includes supporting workflow
+references; it does not register an MCP server. The [agent setup guide](https://pyncbi.readthedocs.io/en/latest/agents.html)
+covers executable paths, repository skills, long-operation timeouts and output-file access.
 
 Set `PYNCBI_AGENT_MODE=1` to suppress colors/progress. MCP errors include `error_code`,
 `hint`, and `retryable`. HTTP clients initialize a session and send its `Mcp-Session-Id`

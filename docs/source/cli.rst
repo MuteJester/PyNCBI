@@ -1005,7 +1005,7 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
 
 .. code-block:: text
 
-   usage: pyncbi skill [-h] [--target {antigravity,claude,cursor,all}]
+   usage: pyncbi skill [-h] [--target {codex,antigravity,claude,cursor,all}]
                        [--dir DIR]
                        {show,install}
 
@@ -1014,8 +1014,9 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
 
    options:
      -h, --help            show this help message and exit
-     --target {antigravity,claude,cursor,all}
-                           Agent platform to install skill into (default: all)
+     --target {codex,antigravity,claude,cursor,all}
+                           Skill destination; all installs user skills for Codex,
+                           Claude and Antigravity (Cursor is project-local)
      --dir DIR             Custom directory to write SKILL.md into
 
 ``pyncbi status``

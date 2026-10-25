@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import functools
 import inspect
+import math
 from typing import Any
 
 JSON_SCHEMA_TYPES: frozenset[str] = frozenset(
@@ -137,3 +138,66 @@ def validate_tool_schemas(tools: list[dict[str, Any]] | None = None) -> list[str
             elif not isinstance(annotations.get("readOnlyHint"), bool):
                 problems.append(f"{name}: annotations.readOnlyHint must be a boolean")
     return problems
+
+
+def validate_tool_arguments(name: str, arguments: dict[str, Any]) -> None:
+    """Enforce the input constraints used by our tool catalogue before doing I/O.
+
+    This validates PyNCBI's own finite schema vocabulary, not arbitrary JSON Schema.
+    Values are checked without coercion; in particular strings cannot enable a boolean flag.
+    """
+    from PyNCBI.mcp.tools import MCP_TOOLS
+
+    tool = next((tool for tool in MCP_TOOLS if tool["name"] == name), None)
+    if tool is None:
+        raise ValueError(f"Unknown tool: {name}")
+    schema = tool["inputSchema"]
+    properties = schema["properties"]
+    unknown = set(arguments) - set(properties)
+    if unknown:
+        raise ValueError(
+            f"Unknown argument(s) for {name}: {', '.join(sorted(unknown))}. "
+            f"Available: {', '.join(properties)}"
+        )
+    missing = set(schema.get("required", [])) - set(arguments)
+    if missing:
+        raise ValueError(f"Missing required argument(s) for {name}: {', '.join(sorted(missing))}")
+
+    def matches(value: Any, spec: dict[str, Any]) -> bool:
+        if "anyOf" in spec:
+            return any(matches(value, option) for option in spec["anyOf"])
+        kind = str(spec.get("type", ""))
+        valid = {
+            "string": isinstance(value, str),
+            "integer": isinstance(value, int) and not isinstance(value, bool),
+            "number": isinstance(value, (int, float)) and not isinstance(value, bool),
+            "boolean": isinstance(value, bool),
+            "array": isinstance(value, list),
+            "object": isinstance(value, dict),
+            "null": value is None,
+        }.get(kind, False)
+        if not valid:
+            return False
+        if kind in ("integer", "number"):
+            if isinstance(value, float) and not math.isfinite(value):
+                return False
+            if "minimum" in spec and value < spec["minimum"]:
+                return False
+        if kind == "string" and len(value.strip()) < spec.get("minLength", 0):
+            return False
+        if kind == "array":
+            return len(value) >= spec.get("minItems", 0) and all(
+                matches(item, spec["items"]) for item in value
+            )
+        return True
+
+    for field, value in arguments.items():
+        spec = properties[field]
+        if not matches(value, spec):
+            expected = spec.get("type", " or ".join(item["type"] for item in spec.get("anyOf", [])))
+            constraints = {
+                key: spec[key] for key in ("minimum", "minLength", "minItems") if key in spec
+            }
+            raise ValueError(
+                f"Invalid {name}.{field}: expected {expected}; constraints: {constraints}"
+            )

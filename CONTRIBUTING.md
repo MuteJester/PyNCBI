@@ -131,3 +131,12 @@ Tests/build/docs tools live in development extras. An independent HTTP test clie
 allowed there. Isolated `python -I -S` tests exercise Python, CLI, MCP, streaming and live
 local-server retrieval without site-packages. Wheel checks reject runtime requirements
 and install with `--no-deps --no-index`. Any format beyond JSON/CSV/TSV belongs to callers.
+
+
+Agent workflow validation uses `python scripts/check_mcp_client.py` with the
+`protocol-test` extra. Its NCBI fixture is loopback-only and requires no model-provider
+or NCBI key. It verifies protocol/workflow behavior, not automatic model tool selection.
+Use `tests/fixtures/agent_tasks.json` for client/model acceptance checks and record the
+client/model version and actual traces. Skill references under
+`src/PyNCBI/resources/references/` are packaged and installed with `SKILL.md`; run
+`scripts/sync_agent_skill.py` after changing either and keep CLI examples executable.

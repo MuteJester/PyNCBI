@@ -30,6 +30,15 @@ agent skill — plus everything below.
   [migration guide](docs/source/migration.rst) for the full mapping.
 
 ### Added
+- **Agent setup and workflow checks**: direct Codex skill installation, native Cursor skill
+  directories, complete supporting references in every installer and distribution, and
+  documented Codex/Claude MCP registration, call timeouts and server-side file semantics.
+  The concise skill selects an already-connected MCP server before local installation.
+- **MCP input enforcement**: unknown fields, missing required arguments, wrong types and
+  negative sizes fail before domain I/O. Plural Gene/PubMed/FASTA/taxonomy fields advertise
+  both string and array forms. Error envelopes include the same version and timing fields
+  as successful calls. Independent SDK checks exercise pagination, cohort filtering, exact
+  matrix artifacts, dry-run isolation and error recovery over both transports.
 - **Isolated sessions** (`PyNCBI.Session`, `config_scope`, `derive_config`): per-workflow API key, email,
   cache directory, download budget, timeout, audit log, rate limiters, metadata store and telemetry. Every
   networked function is available as a session method with the session's client and budget injected.

@@ -80,27 +80,25 @@ def _cmd_skill(args: argparse.Namespace) -> int:
         print(skill_content)
         return 0
 
-    # Install SKILL.md into agent skill directories
-    installed_paths: list[str] = []
+    files = [skill_path, *sorted((skill_path.parent / "references").glob("*.md"))]
     if args.dir:
-        dest = Path(args.dir) / "SKILL.md"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(skill_content, encoding="utf-8")
-        installed_paths.append(str(dest))
+        destinations = [Path(args.dir)]
     else:
-        targets = ["antigravity", "claude"] if args.target == "all" else [args.target]
-        for t in targets:
-            if t == "antigravity":
-                dest = (
-                    Path.home() / ".gemini" / "antigravity-cli" / "skills" / "pyncbi" / "SKILL.md"
-                )
-            elif t == "claude":
-                dest = Path.home() / ".claude" / "skills" / "pyncbi" / "SKILL.md"
-            else:
-                dest = Path.cwd() / ".cursor" / "rules" / "pyncbi.mdc"
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(skill_content, encoding="utf-8")
-            installed_paths.append(str(dest))
+        targets = ["codex", "antigravity", "claude"] if args.target == "all" else [args.target]
+        roots = {
+            "codex": Path.home() / ".agents" / "skills" / "pyncbi",
+            "claude": Path.home() / ".claude" / "skills" / "pyncbi",
+            "antigravity": Path.home() / ".gemini" / "antigravity-cli" / "skills" / "pyncbi",
+            "cursor": Path.cwd() / ".cursor" / "skills" / "pyncbi",
+        }
+        destinations = [roots[target] for target in targets]
+    installed_paths = []
+    for destination in destinations:
+        for source in files:
+            target = destination / source.relative_to(skill_path.parent)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        installed_paths.append(str(destination / "SKILL.md"))
 
     print("Installed PyNCBI Agent Skill to:\n" + "\n".join(f"  • {p}" for p in installed_paths))
     return 0

@@ -833,7 +833,27 @@ ENVELOPE_OUTPUT_SCHEMA: dict[str, Any] = {
 
 def _annotate_tools() -> None:
     """Attach MCP behaviour annotations so hosts can reason about each tool."""
+    plural_fields = {
+        ("ncbi_fasta", "accessions"),
+        ("ncbi_pubmed", "pmids_or_query"),
+        ("ncbi_gene", "query"),
+        ("ncbi_taxonomy", "query"),
+    }
     for tool in MCP_TOOLS:
+        schema = tool["inputSchema"]
+        schema["additionalProperties"] = False
+        for field, spec in schema["properties"].items():
+            if spec["type"] in ("integer", "number"):
+                spec.setdefault("minimum", 0)
+            if spec["type"] == "string" and field in schema.get("required", []):
+                spec["minLength"] = 1
+            if (tool["name"], field) in plural_fields:
+                spec.pop("type")
+                spec.pop("minLength", None)
+                spec["anyOf"] = [
+                    {"type": "string", "minLength": 1},
+                    {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                ]
         title, read_only = _TOOL_BEHAVIOUR.get(tool["name"], (tool["name"], True))
         annotations: dict[str, Any] = {
             "title": title,
