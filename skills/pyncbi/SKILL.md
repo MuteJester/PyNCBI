@@ -235,9 +235,7 @@ counts = PyNCBI.load_rnaseq_counts(
     "GSE152418", annotate=True
 )  # + Symbol/GeneType/EnsemblGeneID columns
 gpl = PyNCBI.fetch_gpl_table("GPL570", columns=["Gene Symbol", "ENTREZ_GENE_ID"])
-PyNCBI.download_geo_files(
-    "GSE85506", "./fm/", where="group == 'case'", pattern="*.idat.gz"
-)
+PyNCBI.download_geo_files("GSE85506", "./fm/", where="group == 'case'", pattern="*.idat.gz")
 paper = PyNCBI.fetch_pmc_text("32788292", sections=["methods", "data_availability"])
 print(paper.methods)
 bundle = PyNCBI.build_study_bundle("GSE152418", "./GSE152418/")  # STUDY_OVERVIEW.md etc.
