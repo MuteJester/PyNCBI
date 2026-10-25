@@ -1,16 +1,16 @@
 # PyNCBI
 
 > Python API, CLI and MCP server for NCBI discovery, metadata and data downloads.
-> The repository is preparing version 1.0.0; hosted docs may describe an older release.
+> Version 1.0 uses only the Python standard library and returns native Python data.
 
-- [Quickstart](https://pyncbi.readthedocs.io/en/latest/quickstart.html): search, inspect, fetch.
-- [Workflows](https://pyncbi.readthedocs.io/en/latest/workflows.html): annotation, literature, reads, variants and genomes.
-- [Data contracts](https://pyncbi.readthedocs.io/en/latest/data_contract.html): identifiers, numeric precision, missing values and metadata scores.
-- [Configuration](https://pyncbi.readthedocs.io/en/latest/configuration.html): credentials, budgets, caching and output.
-- [Agent integration](https://pyncbi.readthedocs.io/en/latest/agents.html): MCP tools, resources, prompts and HTTP sessions.
-- [CLI](https://pyncbi.readthedocs.io/en/latest/cli.html): generated command reference.
-- [Migration](https://pyncbi.readthedocs.io/en/latest/migration.html): changes from pre-1.0 versions.
-- [API](https://pyncbi.readthedocs.io/en/latest/PyNCBI.html): public Python API.
+- [Quickstart](https://mutejester.github.io/PyNCBI/quickstart.html): search, inspect, fetch.
+- [Workflows](https://mutejester.github.io/PyNCBI/workflows.html): annotation, literature, reads, variants and genomes.
+- [Data contracts](https://mutejester.github.io/PyNCBI/data_contract.html): identifiers, numeric precision, missing values and metadata scores.
+- [Configuration](https://mutejester.github.io/PyNCBI/configuration.html): credentials, budgets, caching and output.
+- [Agent integration](https://mutejester.github.io/PyNCBI/agents.html): MCP tools, resources, prompts and HTTP sessions.
+- [CLI](https://mutejester.github.io/PyNCBI/cli.html): generated command reference.
+- [Migration](https://mutejester.github.io/PyNCBI/migration.html): changes from pre-1.0 versions.
+- [API](https://mutejester.github.io/PyNCBI/PyNCBI.html): public Python API.
 
 For the installed contract, use `pyncbi --help`, `pyncbi schema mcp`, and `pyncbi skill`.
 Connect the MCP server to your client and install its PyNCBI skill; PyPI publication does not configure agents automatically.

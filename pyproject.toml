@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "PyNCBI"
 dynamic = ["version"]
-description = "Programmatic & Agent-Ready Python Engine, CLI, and MCP Server for NCBI (GEO, Entrez, PubMed, Gene, SRA, FASTA)"
+description = "Dependency-free Python API, CLI and MCP server for NCBI data discovery, metadata and downloads"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -26,6 +26,10 @@ keywords = [
     "mcp",
     "ai-agents",
     "cli",
+    "mcp-server",
+    "agent-skills",
+    "gene-expression",
+    "geo-datasets",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -50,7 +54,7 @@ pyncbi = "PyNCBI.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/MuteJester/PyNCBI"
-Documentation = "https://pyncbi.readthedocs.io/"
+Documentation = "https://mutejester.github.io/PyNCBI/"
 Repository = "https://github.com/MuteJester/PyNCBI"
 Issues = "https://github.com/MuteJester/PyNCBI/issues"
 Changelog = "https://github.com/MuteJester/PyNCBI/releases"

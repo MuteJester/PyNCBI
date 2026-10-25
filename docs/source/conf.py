@@ -42,6 +42,7 @@ suppress_warnings = ["ref.python"]
 html_theme = "sphinx_rtd_theme"
 html_static_path: list[str] = []
 html_title = f"PyNCBI {release}"
+html_baseurl = "https://mutejester.github.io/PyNCBI/"
 
 # -- Extension configuration -------------------------------------------------
 

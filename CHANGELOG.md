@@ -4,7 +4,7 @@ All notable changes to PyNCBI are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 1.0.0
+## [1.0.0] — 2026-10-25
 
 First release of the redesigned PyNCBI: a programmatic, agent-ready engine, CLI (`pyncbi`) and MCP server
 (`pyncbi mcp`) for NCBI. Architecture: `core/`, `domains/`, `io/`, `cli/`, `mcp/`; `NCBIClient` with
@@ -30,6 +30,9 @@ agent skill — plus everything below.
   [migration guide](docs/source/migration.rst) for the full mapping.
 
 ### Added
+- **Release delivery**: validated documentation deploys to GitHub Pages; PyPI publication
+  supports the existing repository token or Trusted Publishing, verifies uploaded artifact
+  digests, attaches distributions/checksums to GitHub releases, and smoke-tests the published package.
 - **Agent setup and workflow checks**: direct Codex skill installation, native Cursor skill
   directories, complete supporting references in every installer and distribution, and
   documented Codex/Claude MCP registration, call timeouts and server-side file semantics.

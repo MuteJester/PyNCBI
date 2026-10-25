@@ -7,9 +7,10 @@ authors:
     given-names: Thomas
     email: thomaskon90@gmail.com
 version: 1.0.0
+date-released: 2026-10-25
 license: MIT
 repository-code: https://github.com/MuteJester/PyNCBI
-url: https://pyncbi.readthedocs.io/
+url: https://mutejester.github.io/PyNCBI/
 keywords:
   - ncbi
   - geo

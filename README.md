@@ -4,16 +4,22 @@
 
 # PyNCBI
 
+[![PyPI](https://img.shields.io/pypi/v/PyNCBI)](https://pypi.org/project/PyNCBI/)
+[![Python](https://img.shields.io/pypi/pyversions/PyNCBI)](https://pypi.org/project/PyNCBI/)
+[![CI](https://github.com/MuteJester/PyNCBI/actions/workflows/python-publish.yml/badge.svg?branch=main)](https://github.com/MuteJester/PyNCBI/actions/workflows/python-publish.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/MuteJester/PyNCBI/blob/main/LICENSE)
+
 Python tools, a command-line interface, and an MCP server for discovering NCBI studies,
 inspecting sample metadata, and downloading scientific data.
 
-[Documentation](https://pyncbi.readthedocs.io/) ·
-[Migration to 1.0](https://pyncbi.readthedocs.io/en/latest/migration.html) ·
+[Documentation](https://mutejester.github.io/PyNCBI/) ·
+[Migration to 1.0](https://mutejester.github.io/PyNCBI/migration.html) ·
 [Issues](https://github.com/MuteJester/PyNCBI/issues) ·
-[Changelog](CHANGELOG.md)
+[Changelog](https://github.com/MuteJester/PyNCBI/blob/main/CHANGELOG.md)
 
-The 1.0.0 release is in preparation. These examples describe this checkout; the version
-currently available on PyPI and the hosted documentation may differ until release.
+PyNCBI 1.0.0 provides a Python API, CLI and MCP server using only Python's standard
+library. Upgrading from an earlier version? Read the [migration guide](https://mutejester.github.io/PyNCBI/migration.html)
+for the native data API and other breaking changes.
 
 ## Install
 
@@ -23,7 +29,7 @@ pip install PyNCBI
 
 For the development version, clone this repository and run `pip install -e ".[dev,docs]"`.
 Python 3.10 remains a legacy compatibility target. CI also checks newer Python versions;
-see [CONTRIBUTING.md](CONTRIBUTING.md) for the release validation policy.
+see [CONTRIBUTING.md](https://github.com/MuteJester/PyNCBI/blob/main/CONTRIBUTING.md) for the release validation policy.
 
 There are **no third-party runtime dependencies**. PyNCBI uses only the Python standard library. An NCBI API key
 is optional. Configure it with `NCBI_API_KEY`; use `NCBI_EMAIL` for your contact address.
@@ -144,7 +150,7 @@ claude mcp add --transport stdio --scope user pyncbi -- pyncbi mcp
 ```
 
 Choose the command for your client. The skill installer includes supporting workflow
-references; it does not register an MCP server. The [agent setup guide](https://pyncbi.readthedocs.io/en/latest/agents.html)
+references; it does not register an MCP server. The [agent setup guide](https://mutejester.github.io/PyNCBI/agents.html)
 covers executable paths, repository skills, long-operation timeouts and output-file access.
 
 Set `PYNCBI_AGENT_MODE=1` to suppress colors/progress. MCP errors include `error_code`,
@@ -161,6 +167,6 @@ docker run --rm -i pyncbi mcp
 
 ## Development and citation
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, generated artifacts and release steps.
-[CITATION.cff](CITATION.cff) contains the software citation. PyNCBI is distributed under
-the [MIT license](LICENSE).
+See [CONTRIBUTING.md](https://github.com/MuteJester/PyNCBI/blob/main/CONTRIBUTING.md) for tests, generated artifacts and release steps.
+[CITATION.cff](https://github.com/MuteJester/PyNCBI/blob/main/CITATION.cff) contains the software citation. PyNCBI is distributed under
+the [MIT license](https://github.com/MuteJester/PyNCBI/blob/main/LICENSE).

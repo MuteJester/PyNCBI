@@ -1,8 +1,8 @@
 Release validation and hosting
 ==============================
 
-The repository prepares version 1.0.0. Do not publish a final release until the exact
-release commit passes its required checks.
+Release tags identify validated source commits. Publish a final release only after its
+commit passes the required code, documentation, platform and packaging checks.
 
 Local validation
 ----------------
@@ -26,17 +26,27 @@ silently rerun without timeouts. Review endpoint and rate-limit failures before 
 PyPI account setup
 ------------------
 
-The publish job uses Trusted Publishing (OIDC), not a stored API token. On the existing
-PyPI project, configure a GitHub trusted publisher with:
+The publish job uses the existing ``PYPI_API_TOKEN`` GitHub Actions secret when present.
+Only the publishing job receives that secret; it is never printed or stored in artifacts.
+With no token configured, the same PyPA action uses Trusted Publishing (OIDC). Configure
+a GitHub trusted publisher on the PyPI project with:
 
 * Owner: ``MuteJester``
 * Repository: ``PyNCBI``
 * Workflow filename: ``python-publish.yml``
 * Environment: ``pypi``
 
-Create the ``pypi`` GitHub Actions environment and configure any desired release protections.
-This account setup cannot be established by editing the workflow alone. No PyPI API token
-needs to be placed in source files or sent through chat.
+After configuring the trusted publisher, remove the legacy GitHub secret to switch to
+OIDC and enable publishing attestations. The ``pypi`` GitHub environment must exist.
+No token needs to be placed in source files or sent through chat.
+
+Publication uses the wheel/source archive produced and tested earlier in the same run.
+After upload, ``scripts/verify_pypi_release.py`` compares their SHA256 digests with PyPI,
+attaches those same files and ``SHA256SUMS`` to the GitHub release, and installs the
+published version without dependencies for an offline CLI smoke check. A publication
+failure must be investigated before declaring success. If upload succeeded but a later
+step failed, rerun failed jobs to reuse the original artifacts. Rebuilding can change
+archive bytes; existing PyPI files are immutable and a digest mismatch is an error.
 
 Release metadata
 ----------------
@@ -50,11 +60,12 @@ Use a prerelease package version and matching tag when publishing a release cand
 Documentation hosting
 ---------------------
 
-In the Read the Docs project, verify that the repository and default branch point to
-this repository, that ``.readthedocs.yaml`` is used, and that the webhook/build integration
-is connected. Trigger a build of the intended commit. The default ``latest`` build and
-a versioned release build should both render the new guides and API reference.
+The canonical documentation is ``https://mutejester.github.io/PyNCBI/``. The CI workflow
+builds Sphinx with warnings as errors, copies ``llms.txt`` and deploys the validated output
+to GitHub Pages after the main-branch test matrix passes. Pages is configured to use
+GitHub Actions. Verify the homepage, migration guide, agent setup guide and ``llms.txt``
+after merging a release, before announcing it.
 
-Check the homepage and ``/en/latest/`` after rebuilding. A local Sphinx build does not
-update hosted documentation. These hosting settings require access to the Read the Docs
-account; they cannot be repaired by changing local RST files alone.
+The legacy Read the Docs configuration remains available, but its account integration
+needs separate repair before relying on that mirror. Local Sphinx builds do not repair
+hosted builds or account settings.
