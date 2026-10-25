@@ -184,3 +184,58 @@ def test_text_files_are_never_written_with_the_platform_default_encoding() -> No
         "these calls use the platform default encoding, which is cp1252 on Windows and "
         f"cannot encode the Greek letters common in GEO metadata: {offenders}"
     )
+
+
+def test_network_and_worker_creation_use_the_shared_io_components() -> None:
+    """HTTP policy and context propagation must not be bypassed by a domain loader."""
+    offenders = []
+    for path in _python_sources():
+        relative = path.relative_to(SRC_ROOT).as_posix()
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                modules = [node.module or ""]
+                if (
+                    node.module == "concurrent.futures"
+                    and any(alias.name == "ThreadPoolExecutor" for alias in node.names)
+                    and relative != "io/transfer_limits.py"
+                ):
+                    offenders.append(f"{relative}:{node.lineno} imports an unscoped worker pool")
+            else:
+                continue
+            if relative != "io/http_client.py" and any(
+                module == name or module.startswith(name + ".")
+                for module in modules
+                for name in ("requests", "urllib3", "urllib.request", "http.client")
+            ):
+                offenders.append(f"{relative}:{node.lineno} bypasses NCBIClient")
+    assert offenders == [], offenders
+
+
+def test_measurement_csv_reading_uses_the_shared_parser() -> None:
+    # Annotation text and Entrez run metadata are different contracts. Every
+    # measurement table must share the identifier/precision/NA policy instead.
+    owners = {"parsing/tabular.py", "domains/annotation.py", "domains/entrez.py"}
+    offenders = []
+    for path in _python_sources():
+        relative = path.relative_to(SRC_ROOT).as_posix()
+        if relative in owners:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        pandas_names = {
+            alias.asname or alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+            if alias.name == "pandas"
+        }
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "read_csv"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id in pandas_names
+            ):
+                offenders.append(f"{relative}:{node.lineno} reads CSV outside the shared parser")
+    assert offenders == [], offenders

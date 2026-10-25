@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import os
 import sys
 
@@ -41,6 +40,7 @@ from PyNCBI.core.formatter import (
     console_safe_text,
 )
 from PyNCBI.core.reporter import Verbosity, get_reporter
+from PyNCBI.core.serialization import json_dumps
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
                 break
         payload = error_payload(e, command=args.subcommand, target=target)
         if getattr(args, "json", False):
-            print(json.dumps(payload, indent=2, default=str))
+            print(json_dumps(payload, indent=2))
         else:
             msg = f"Error [{payload['error_code']}] ({type(e).__name__}): {payload['message']}"
             if payload.get("hint"):

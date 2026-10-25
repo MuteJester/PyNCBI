@@ -55,6 +55,24 @@ counts as a readable table, `io.urls.supplementary_urls` normalises GEO suppleme
 `domains.geo.samples.fetch_sample_tables` / `combine_sample_tables` are the only way to build a sample
 table. Tests fail if a second copy appears.
 
+Choose the owner below before adding retrieval behavior. Public functions, objects, CLI commands,
+and MCP handlers should call these components rather than implement another policy.
+
+| Responsibility | Shared owner | Caller rule |
+| --- | --- | --- |
+| HTTP, retries, rate limits, response caching | `io.http_client.NCBIClient` | Inject the client; domains do not import networking libraries. |
+| Transfer budgets and context in workers | `io.transfer_limits` | Use `bounded_transfer` and `ContextThreadPoolExecutor` so nested work shares its session and budget. |
+| Filename identity and patterns | `core.files` | Interpret URL `file=` parameters before detecting formats or matching names. Use `io.urls.download_filename` before saving a remote name. |
+| Measurement text parsing | `parsing.tabular` | Reuse identifier, missing-value, delimiter and exact-float handling. SOFT parsers extract their format's table, then delegate cell parsing. |
+| Persistent caches | `io.cache.LocalCache` | Reuse typed JSON and atomic file access. Domain adapters own keys and completeness flags, not temporary-file writers. |
+| External JSON and canonical content | `core.serialization` | Use strict numeric/null handling for files, CLI/MCP output, audit events and record hashes. Cache tags and pagination tokens have separate structural formats. |
+
+Architecture tests enforce the networking, worker-pool and measurement-parser boundaries, in addition
+to layering and API compatibility. Metadata annotation text and Entrez run-info CSV have separate
+column contracts; they are explicit exceptions to measurement parsing. Partial previews and raw
+downloads also serve different purposes: previews read ranges, and downloads preserve hosted bytes.
+Share policy and selection without forcing those operations through a full-table download.
+
 ## How tests are written
 
 - Offline tests never mock `requests`; they spin up a real local HTTP server (`tests/conftest.py`,

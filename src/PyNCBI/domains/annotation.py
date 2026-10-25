@@ -31,6 +31,7 @@ from PyNCBI.core.exceptions import (
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
 from PyNCBI.core.types import validate_accession
+from PyNCBI.io.cache import LocalCache
 from PyNCBI.io.http_client import get_default_client
 from PyNCBI.io.transfer_limits import ContextThreadPoolExecutor as ThreadPoolExecutor
 from PyNCBI.parsing.soft_parser import SOFTParser, get_parser
@@ -97,29 +98,26 @@ _ESUMMARY_BATCH_SIZE = 400
 # ---------------------------------------------------------------------------
 
 
-def _annotation_cache_dir() -> Path:
-    folder = Path(get_config().cache_folder) / "annotations"
-    folder.mkdir(parents=True, exist_ok=True)
-    return folder
+def _annotation_cache_dir(client: HttpClient) -> Path:
+    config = getattr(client, "app_config", None) or get_config()
+    return Path(config.cache_folder) / "annotations"
 
 
 def _read_cached_table(path: Path) -> pd.DataFrame | None:
-    if not path.exists():
+    payload = LocalCache[dict[str, Any]](path.parent).get(path.name)
+    if not isinstance(payload, dict) or payload.get("version") != 1:
         return None
-    try:
-        df = pd.read_csv(
-            path, sep="\t", index_col=0, dtype=str, keep_default_na=False, compression="gzip"
-        )
-    except Exception:
+    table = payload.get("table")
+    if not isinstance(table, pd.DataFrame):
         return None
-    df.index = df.index.astype(str)
-    return df
+    table.attrs["complete"] = payload.get("complete") is True
+    return table
 
 
 def _write_cached_table(df: pd.DataFrame, path: Path) -> None:
-    tmp = path.with_name(path.name + ".part")
-    df.to_csv(tmp, sep="\t", compression="gzip")
-    tmp.replace(path)
+    LocalCache[dict[str, Any]](path.parent).set(
+        path.name, {"version": 1, "table": df, "complete": bool(df.attrs.get("complete"))}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +201,7 @@ def fetch_gpl_table(
 
     The table is streamed line-by-line from GEO so a `limit` stops the transfer early and
     an 80 MB platform never has to be held as one string. Full tables are cached locally
-    (`<cache>/annotations/GPLxxxx_table.tsv.gz`) so repeated annotation is instant.
+    (`<cache>/annotations/GPLxxxx_table.json.gz`) so repeated annotation is instant.
 
     Args:
         gpl_id: Platform accession (e.g., 'GPL570', 'GPL13534')
@@ -227,7 +225,7 @@ def fetch_gpl_table(
         raise ValueError("source must be 'auto', 'data', or 'annot'")
 
     cache_path = (
-        _annotation_cache_dir() / f"{gpl_id}_{'annot' if src == 'annot' else 'table'}.tsv.gz"
+        _annotation_cache_dir(client) / f"{gpl_id}_{'annot' if src == 'annot' else 'table'}"
     )
     reporter = get_reporter()
 
@@ -385,7 +383,9 @@ def _fetch_geo_annotation_file(assembly: str, client: HttpClient) -> pd.DataFram
     df = df.set_index(id_col)
     if "Chromosome" not in df.columns and "ChrAcc" in df.columns:
         df["Chromosome"] = df["ChrAcc"]
-    return _normalize_annotation_frame(df, "geo_annot_file")
+    table = _normalize_annotation_frame(df, "geo_annot_file")
+    table.attrs["complete"] = True
+    return table
 
 
 def _fetch_datasets_gene_reports(gene_ids: list[str], client: HttpClient) -> pd.DataFrame:
@@ -473,7 +473,7 @@ def load_rnaseq_annotation(
     """Load the NCBI gene annotation table used by GEO's RNA-seq count matrices.
 
     Source cascade (first that works wins; results are merged into a local cache):
-        1. Local cache `<cache>/annotations/<Organism>.<assembly>.annot.tsv.gz`
+        1. Local cache `<cache>/annotations/<Organism>.<assembly>.annot.json.gz`
         2. GEO's own annotation file (full table, ~40k genes; browser-gated on some networks)
         3. NCBI Datasets v2 gene API for the requested `gene_ids` (1000 IDs/request)
         4. Entrez Gene `esummary` for the requested `gene_ids` (no GeneType/Ensembl)
@@ -493,7 +493,7 @@ def load_rnaseq_annotation(
     if wanted is not None:
         wanted = list(dict.fromkeys(g for g in wanted if g))
     cache_name = RNASEQ_ANNOTATION_FILES.get(assembly, f"{assembly}.annot.tsv.gz")
-    cache_path = _annotation_cache_dir() / cache_name
+    cache_path = _annotation_cache_dir(client) / cache_name.removesuffix(".tsv.gz")
     reporter = get_reporter()
 
     with reporter.task(
@@ -503,7 +503,7 @@ def load_rnaseq_annotation(
         complete_in_cache = False
         if table is not None:
             if wanted is None:
-                complete_in_cache = bool(table.attrs.get("complete")) or len(table) > 10000
+                complete_in_cache = bool(table.attrs.get("complete"))
             else:
                 complete_in_cache = all(g in table.index for g in wanted)
             if complete_in_cache:

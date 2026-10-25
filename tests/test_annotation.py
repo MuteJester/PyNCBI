@@ -118,6 +118,39 @@ def test_load_rnaseq_annotation_from_geo_file_and_cache(fake_geo):
     assert sum(1 for h in fake_geo.hits if "annot.tsv.gz" in h) == 1
 
 
+def test_complete_small_annotation_table_does_not_require_another_download(fake_geo):
+    fake_geo.add(
+        "/geo/download/?type=rnaseq_counts&format=file&file=Human.GRCh38.p13.annot.tsv.gz",
+        gzip.compress(ANNOT_TSV.encode()),
+        "application/octet-stream",
+    )
+    first = load_rnaseq_annotation()
+    cached = load_rnaseq_annotation()
+    pd.testing.assert_frame_equal(cached, first)
+    assert sum("annot.tsv.gz" in hit for hit in fake_geo.hits) == 1
+
+
+def test_large_partial_annotation_cache_is_not_treated_as_a_complete_genome(monkeypatch):
+    from PyNCBI.domains import annotation
+
+    ids = [str(n) for n in range(10001)]
+    calls = []
+    monkeypatch.setattr(
+        annotation, "_fetch_geo_annotation_file", lambda *args: calls.append(args[0])
+    )
+    monkeypatch.setattr(
+        annotation,
+        "_fetch_datasets_gene_reports",
+        lambda *args: pd.DataFrame(
+            {"Symbol": ["x"] * len(ids)}, index=pd.Index(ids, name="GeneID")
+        ),
+    )
+    assert len(load_rnaseq_annotation(gene_ids=ids)) == len(ids)
+    with pytest.raises(DataError, match="no gene_ids"):
+        load_rnaseq_annotation()
+    assert calls == ["GRCh38.p13", "GRCh38.p13"]
+
+
 def test_load_rnaseq_annotation_falls_back_to_datasets_api_when_geo_is_captcha_gated(fake_geo):
     fake_geo.add(
         "/geo/download/?type=rnaseq_counts&format=file&file=Human.GRCh38.p13.annot.tsv.gz",

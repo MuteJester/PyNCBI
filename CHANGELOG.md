@@ -110,6 +110,16 @@ agent skill — plus everything below.
   `GSE.samples_df` and `extract_gse_samples` can no longer disagree.
 
 ### Fixed
+- Standardize measurement parsing across expression, supplementary files, previews, GSM,
+  Series Matrix and GDS; fix GDS decimal rounding and preserve literal `NA` feature IDs.
+- Share decoded filename/pattern handling across selectors, planning, preview and download,
+  including GEO `file=` query parameters.
+- Route annotation persistence through the shared atomic typed cache; record completeness
+  explicitly instead of guessing from table size. Old annotation TSV caches are ignored.
+- Use strict JSON consistently for saved studies, bundles, audit events and canonical hashes;
+  enforce HTTP, worker-context and measurement-parser ownership with architecture tests.
+- Apply the shared operation budget during preflight instead of consulting a competing
+  global/per-file limit when an explicitly configured client or enclosing operation owns it.
 - Consolidate GSE/GSM retrieval behind typed GEO loaders, shared matrix alignment and sample-table parsing;
   AUTO uses the functional expression resolver while explicit modes remain strict.
 - Separate object metadata from source/file-specific data caches, invalidate ambiguous old snapshots,

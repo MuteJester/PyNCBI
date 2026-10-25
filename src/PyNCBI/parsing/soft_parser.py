@@ -10,14 +10,14 @@ from __future__ import annotations
 import contextlib
 import re
 from dataclasses import dataclass, field
-from io import StringIO
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from PyNCBI.core.exceptions import DataError, NoDataAvailableError, SOFTParseError
-from PyNCBI.core.types import DataStatus, GSEInfo, GSMInfo, table_read_options
+from PyNCBI.core.types import DataStatus, GSEInfo, GSMInfo
 from PyNCBI.io.urls import supplementary_urls
+from PyNCBI.parsing.tabular import parse_delimited_table
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -357,9 +357,7 @@ class SOFTParser:
         if not clean_lines:
             return pd.DataFrame()
 
-        df = pd.read_csv(
-            StringIO("\n".join(clean_lines)), sep="\t", low_memory=False, **table_read_options()
-        )
+        df = parse_delimited_table("\n".join(clean_lines), f"{gsm_id}.tsv", keep_id_column=True)
         df = df.rename(columns={"ID_REF": "probe", "VALUE": gsm_id})
 
         if "probe" in df.columns:

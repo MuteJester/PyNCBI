@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import DataError
+from PyNCBI.core.files import matches_file
 from PyNCBI.core.types import validate_accession
 from PyNCBI.domains.geo.resolve import _resolve_assembly_for_gse, resolve_cohort_files
 from PyNCBI.domains.geo.transfer import _free_bytes, _inspect_urls_parallel
@@ -17,6 +17,7 @@ from PyNCBI.io.http_client import (
     format_size_human,
     get_default_client,
 )
+from PyNCBI.io.transfer_limits import bounded_transfer, response_budget
 from PyNCBI.parsing.soft_parser import SOFTParser, get_parser
 
 if TYPE_CHECKING:
@@ -109,12 +110,7 @@ def _select_supp_urls(
             )
         return [supp_urls[file_index]]
     if pattern:
-        pat = pattern.lower()
-        selected = [
-            u
-            for u in supp_urls
-            if fnmatch.fnmatch(u.split("/")[-1].lower(), pat) or pat in u.split("/")[-1].lower()
-        ]
+        selected = [u for u in supp_urls if matches_file(u, pattern)]
         if not selected:
             raise ValueError(f"No supplementary files matched pattern '{pattern}' in {accession}")
         return selected
@@ -148,6 +144,7 @@ def build_download_plan(
     )
 
 
+@bounded_transfer
 def _guard_download(
     client: HttpClient,
     accession: str,
@@ -159,18 +156,12 @@ def _guard_download(
     check_disk_space: bool,
 ) -> DownloadPlan | None:
     """Refuse a download that blows the byte budget or would not fit on disk."""
-    limit_mb = get_config().max_download_mb if max_download_mb is None else float(max_download_mb)
-    if not urls or (not check_disk_space and limit_mb <= 0):
+    budget = response_budget(getattr(client, "app_config", None) or get_config())
+    if not urls or (not budget.check_disk_space and budget.limit is None):
         return None
     plan = build_download_plan(client, accession, urls, destination, source=source)
-    if limit_mb > 0 and plan.total_bytes > int(limit_mb * 1024 * 1024):
-        raise DataError(
-            f"{accession}: {plan.total_human} across {plan.file_count} file(s) exceeds "
-            f"max_download_mb={limit_mb}",
-            hint="Raise max_download_mb= (or PYNCBI_MAX_DOWNLOAD_MB), narrow the selection with "
-            "--pattern/--file-index/--where, or inspect sizes first with `pyncbi download --dry-run`",
-        )
-    if check_disk_space and not plan.fits_on_disk:
+    budget.check(plan.total_bytes)
+    if budget.check_disk_space and not plan.fits_on_disk:
         raise DataError(
             f"Insufficient disk space for {accession}: need {plan.total_human}, "
             f"{format_size_human(plan.free_bytes)} free at {plan.destination}",

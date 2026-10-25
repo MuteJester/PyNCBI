@@ -10,11 +10,10 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
-from io import StringIO
 
 import pandas as pd
 
-from PyNCBI.core.types import table_read_options
+from PyNCBI.parsing.tabular import parse_delimited_table
 
 
 @dataclass
@@ -144,14 +143,7 @@ class SeriesMatrixParser:
             return pd.DataFrame()
 
         try:
-            df = pd.read_csv(
-                StringIO("\n".join(table_lines)),
-                sep="\t",
-                index_col=0,
-                low_memory=False,
-                **table_read_options(),
-            )
-            df.index = df.index.astype(str)
+            df = parse_delimited_table("\n".join(table_lines), "series_matrix.tsv")
             df.index.name = "probe"
             df.columns = [str(c).strip('"') for c in df.columns]
             return df

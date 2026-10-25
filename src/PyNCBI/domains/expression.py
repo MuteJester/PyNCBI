@@ -22,7 +22,6 @@ import gzip
 import io
 import tarfile
 from dataclasses import dataclass, field
-from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -30,9 +29,10 @@ import pandas as pd
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import DataError, HTTPError, NetworkError, NoDataAvailableError
+from PyNCBI.core.files import file_name as resolve_file_name
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
-from PyNCBI.core.types import TABULAR_EXTENSIONS, table_read_options, validate_accession
+from PyNCBI.core.types import is_tabular_file, validate_accession
 from PyNCBI.domains.geo.matrices import (
     _GSM_RE,
     _value_series,
@@ -44,11 +44,12 @@ from PyNCBI.domains.geo.matrices import (
 from PyNCBI.domains.geo.matrices import (
     map_columns_to_gsms as map_columns_to_gsms,
 )
-from PyNCBI.io.http_client import format_size_human, get_default_client
+from PyNCBI.io.http_client import get_default_client
 from PyNCBI.io.transfer_limits import ContextThreadPoolExecutor as ThreadPoolExecutor
-from PyNCBI.io.transfer_limits import bounded_transfer
+from PyNCBI.io.transfer_limits import bounded_transfer, response_budget
 from PyNCBI.io.urls import supplementary_urls
 from PyNCBI.parsing.soft_parser import SOFTParser, get_parser
+from PyNCBI.parsing.tabular import parse_delimited_table as _read_table_text
 
 if TYPE_CHECKING:
     from PyNCBI.core.protocols import HttpClient
@@ -182,33 +183,13 @@ def _decompress(raw: bytes, *, context: str) -> str:
     return decompress_table_bytes(raw, context=context)
 
 
-def _read_table_text(text: str, filename: str) -> pd.DataFrame:
-    head = text[: text.find("\n")] if "\n" in text else text
-    sep = (
-        ","
-        if (filename.lower().endswith((".csv", ".csv.gz")) or head.count(",") > head.count("\t"))
-        else "\t"
-    )
-    df = pd.read_csv(
-        StringIO(text),
-        sep=sep,
-        index_col=0,
-        low_memory=False,
-        comment="!",
-        **table_read_options(),
-    )
-    df.index = df.index.astype(str)
-    return df
-
-
 def _tabular_name(url: str) -> bool:
-    name = url.split("?")[0].rstrip("/").split("/")[-1].lower()
-    return name.endswith(TABULAR_EXTENSIONS)
+    return is_tabular_file(url)
 
 
 def _rank_supplementary(urls: list[str]) -> list[str]:
     def score(url: str) -> tuple[int, int]:
-        name = url.split("/")[-1].lower()
+        name = resolve_file_name(url).lower()
         hint = 0 if any(h in name for h in MATRIX_NAME_HINTS) else 1
         return (hint, len(name))
 
@@ -297,8 +278,7 @@ def _resolve_expression(
     soft_parser = parser or get_parser()
     cfg = get_config()
     reporter = get_reporter()
-    max_download_mb = cfg.max_download_mb if max_download_mb is None else max_download_mb
-    max_bytes = int(max_download_mb * 1024 * 1024) if max_download_mb else None
+    budget = response_budget(getattr(client, "app_config", None) or cfg)
 
     with reporter.task(
         "GEO", "load_expression", f"Resolving expression matrix for {gse_id}", target=gse_id
@@ -344,19 +324,13 @@ def _resolve_expression(
                 "available": bool(info.get("exists")),
             }
             size = info.get("size_bytes")
-            if (
-                entry["available"]
-                and isinstance(size, int)
-                and max_bytes is not None
-                and size > max_bytes
-            ):
-                entry["note"] = f"exceeds max_download_mb={max_download_mb}"
-                candidates.append(entry)
-                raise DataError(
-                    f"{name} is {format_size_human(size)}, which exceeds max_download_mb={max_download_mb}",
-                    hint="Raise max_download_mb=, choose another prefer= source, or stream the file with "
-                    "`pyncbi download` / `preview_geo_file`",
-                )
+            if entry["available"] and isinstance(size, int):
+                try:
+                    budget.check(size)
+                except DataError:
+                    entry["note"] = f"exceeds max_download_mb={budget.max_download_mb}"
+                    candidates.append(entry)
+                    raise
             return entry
 
         for source in order:
@@ -368,25 +342,18 @@ def _resolve_expression(
                             gse_id, detail="no NCBI RNA-seq assembly for the study organism"
                         )
                     url = rnaseq_counts_url(gse_id, assembly=assembly, count_type=count_type)
-                    entry = _guard(url, source, url.split("file=")[-1])
+                    entry = _guard(url, source, resolve_file_name(url))
                     candidates.append(entry)
                     if not entry["available"]:
                         continue
                     text = _decompress(client.get_bytes(url), context=f"{gse_id} RNA-seq counts")
-                    matrix = pd.read_csv(
-                        StringIO(text),
-                        sep="\t",
-                        index_col=0,
-                        low_memory=False,
-                        **table_read_options(),
-                    )
-                    matrix.index = matrix.index.astype(str)
+                    matrix = _read_table_text(text, resolve_file_name(url))
                     matrix.index.name = matrix.index.name or "GeneID"
                     file_name, file_url = str(entry["name"]), url
 
                 elif source == "series_matrix":
                     url = cfg.get_series_matrix_url(gse_id)
-                    entry = _guard(url, source, url.split("/")[-1])
+                    entry = _guard(url, source, resolve_file_name(url))
                     candidates.append(entry)
                     if not entry["available"]:
                         continue
@@ -417,7 +384,7 @@ def _resolve_expression(
                         )
                         continue
                     url = ranked[0]
-                    entry = _guard(url, source, url.split("/")[-1])
+                    entry = _guard(url, source, resolve_file_name(url))
                     candidates.append(entry)
                     if not entry["available"]:
                         continue
@@ -454,7 +421,7 @@ def _resolve_expression(
                     def _one(item: tuple[str, str]) -> pd.Series | None:
                         gsm, link = item
                         text = _decompress(client.get_bytes(link), context=f"{gsm} table")
-                        return _value_series(_read_table_text(text, link.split("/")[-1]), gsm)
+                        return _value_series(_read_table_text(text, resolve_file_name(link)), gsm)
 
                     with ThreadPoolExecutor(
                         max_workers=max(1, min(max_workers, len(per_sample)))
@@ -531,7 +498,7 @@ def _resolve_expression(
                         )
                         continue
                     url = tars[0]
-                    entry = _guard(url, source, url.split("/")[-1])
+                    entry = _guard(url, source, resolve_file_name(url))
                     candidates.append(entry)
                     if not entry["available"]:
                         continue

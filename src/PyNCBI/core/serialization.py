@@ -38,9 +38,22 @@ def json_value(value: Any) -> Any:
     return str(value)
 
 
-def json_dumps(value: Any, *, indent: int | None = None) -> str:
+def json_dumps(
+    value: Any,
+    *,
+    indent: int | None = None,
+    sort_keys: bool = False,
+    separators: tuple[str, str] | None = None,
+) -> str:
     """Encode strict JSON, retaining the full precision of finite Python floats."""
-    return json.dumps(json_value(value), indent=indent, allow_nan=False, ensure_ascii=True)
+    return json.dumps(
+        json_value(value),
+        indent=indent,
+        sort_keys=sort_keys,
+        separators=separators,
+        allow_nan=False,
+        ensure_ascii=True,
+    )
 
 
 def table_records(frame: pd.DataFrame) -> list[dict[str, Any]]:

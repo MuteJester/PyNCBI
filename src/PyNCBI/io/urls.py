@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from PyNCBI.core.files import file_name
+
 _CACHEABLE_PATH_RE = re.compile(
     r"/geo/query/acc\.cgi|/entrez/eutils/\w+\.fcgi|/datasets/v\d|/ena/portal/api", re.I
 )
@@ -103,13 +105,7 @@ def infer_file_type(filename: str) -> str:
 
 def download_filename(url: str) -> str:
     """Resolve a URL's file parameter/path to one portable local filename."""
-    from urllib.parse import parse_qs, unquote, urlparse
-
-    parsed = urlparse(url)
-    name = (
-        parse_qs(parsed.query).get("file", [unquote(parsed.path.rstrip("/").rsplit("/", 1)[-1])])[0]
-        or "download"
-    )
+    name = file_name(url) or "download"
     if (
         name in (".", "..")
         or any(c in name for c in '/\\<>:"|?*')

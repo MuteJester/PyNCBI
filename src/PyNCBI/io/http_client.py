@@ -56,6 +56,7 @@ from PyNCBI.io.urls import (
     _API_KEY_PARAM_RE,
     _CACHEABLE_PATH_RE,
     _UNCACHEABLE_PATH_RE,
+    download_filename,
     format_size_human,
     infer_file_type,
     normalize_ncbi_url,
@@ -829,9 +830,7 @@ class NCBIClient:
         prepared_url, _, _, wait_sec = self._prepare_request(url)
         realm = classify_ncbi_realm(prepared_url)
         safe_url = redact_url(prepared_url)
-        parsed = urlparse(prepared_url)
-        query_params = dict(parse_qsl(parsed.query))
-        filename = query_params.get("file") or parsed.path.rstrip("/").split("/")[-1] or "file"
+        filename = download_filename(prepared_url)
 
         size_bytes: int | None = None
         last_modified: str | None = None

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from PyNCBI.core.exceptions import DataError
+from PyNCBI.parsing.tabular import parse_delimited_table
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -117,15 +118,22 @@ def parse_gds_soft(lines: Iterable[str], gds_id: str = "") -> GDSResult:
         raise DataError(f"No data table found in {gds_id or 'GDS'} SOFT file")
     width = len(header)
     norm = [r[:width] + [""] * (width - len(r)) if len(r) != width else r for r in rows]
-    df = pd.DataFrame(norm, columns=header, dtype=str)
-    df = df.set_index(header[0])
-    df.index = df.index.astype(str)
-    df.index.name = header[0]
-    for col in df.columns:
-        if str(col).startswith("GSM"):
-            df[col] = pd.to_numeric(
-                df[col].mask(df[col].isin(["null", "", "NA", "NaN"])), errors="coerce"
-            )
+    text = "\n".join("\t".join(row) for row in [header, *norm])
+    df = parse_delimited_table(
+        text,
+        f"{gds_id}.tsv",
+        text_columns=[col for col in header[1:] if not col.startswith("GSM")],
+    )
+    invalid = [
+        col
+        for col in df.columns
+        if col.startswith("GSM") and not df.empty and not pd.api.types.is_numeric_dtype(df[col])
+    ]
+    if invalid:
+        raise DataError(
+            f"Non-numeric measurements in {gds_id or 'GDS'} column(s): {', '.join(invalid)}",
+            hint="Inspect the source table; invalid measurements are not silently replaced with missing values",
+        )
     return GDSResult(
         gds_id=gds_id, info=info, subsets=subsets, column_descriptions=col_desc, table_df=df
     )

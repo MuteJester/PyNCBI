@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import collections
-import json
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from PyNCBI.core.exceptions import redact_url
 from PyNCBI.core.invocation import record_request
 from PyNCBI.core.logging import get_logger
+from PyNCBI.core.serialization import json_dumps
 from PyNCBI.io.urls import format_size_human
 
 if TYPE_CHECKING:
@@ -87,7 +87,7 @@ class ClientMetrics:
         try:
             self._audit_path.parent.mkdir(parents=True, exist_ok=True)
             with _AUDIT_LOCK, self._audit_path.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(entry, default=str) + "\n")
+                fh.write(json_dumps(entry) + "\n")
         except OSError as exc:  # pragma: no cover - auditing must never break a request
             logger.debug("Audit log write failed: %s", exc)
 

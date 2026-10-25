@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-import fnmatch
 import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal, TypedDict
 
 from PyNCBI.core.exceptions import InvalidAccessionError
+from PyNCBI.core.files import file_name, matches_file
 from PyNCBI.core.protocols import FileSelector, ProgressCallback
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
 
 class _TableReadOptions(TypedDict, total=False):
-    converters: dict[int, Callable[[str], str]]
+    converters: dict[int | str, Callable[[str], str]]
     float_precision: Literal["round_trip"]
 
 
@@ -198,12 +198,10 @@ class PatternFileSelector:
     def select(self, files: list[str], gse_id: str) -> int:
         if not files:
             raise ValueError(f"No supplementary files available for {gse_id}")
-        pat = self.pattern.lower()
         for idx, url in enumerate(files):
-            filename = url.split("/")[-1].lower()
-            if fnmatch.fnmatch(filename, pat) or pat in filename:
+            if matches_file(url, self.pattern):
                 return idx
-        available = [u.split("/")[-1] for u in files]
+        available = [file_name(u) for u in files]
         raise ValueError(
             f"No supplementary file matching '{self.pattern}' in {gse_id}. "
             f"Available files: {available}"
@@ -228,11 +226,11 @@ PARQUET_EXTENSIONS: tuple[str, ...] = (".parquet",)
 EXACT_FLOAT_PARSING: Literal["round_trip"] = "round_trip"
 
 
-def table_read_options() -> _TableReadOptions:
+def table_read_options(*, text_columns: Sequence[str] = ()) -> _TableReadOptions:
     """Preserve feature IDs and use correctly rounded floats across pandas versions."""
     import pandas as pd
 
-    options: _TableReadOptions = {"converters": {0: str}}
+    options: _TableReadOptions = {"converters": {0: str, **dict.fromkeys(text_columns, str)}}
     # pandas 3.1 made its default correctly rounded and deprecated float_precision.
     version = tuple(int(part) for part in pd.__version__.split(".")[:2])
     if version < (3, 1):
@@ -267,7 +265,7 @@ def is_tabular_file(name: str, *, include_parquet: bool = False) -> bool:
         name: Filename or URL; the query string and path are both tolerated
         include_parquet: Also accept binary columnar tables (`.parquet`)
     """
-    fname = str(name).split("?")[0].rstrip("/").split("/")[-1].lower()
+    fname = file_name(name).lower()
     extensions = TABULAR_EXTENSIONS + (PARQUET_EXTENSIONS if include_parquet else ())
     return fname.endswith(extensions)
 

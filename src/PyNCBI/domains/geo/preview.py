@@ -3,21 +3,19 @@
 from __future__ import annotations
 
 import contextlib
-import fnmatch
 import io
 import tarfile
 import zlib
-from io import StringIO
 from typing import TYPE_CHECKING, Any
-
-import pandas as pd
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import NoDataAvailableError
+from PyNCBI.core.files import file_name
 from PyNCBI.core.models import (
     FilePreview,
 )
-from PyNCBI.core.types import SmartFileSelector, table_read_options, validate_accession
+from PyNCBI.core.types import SmartFileSelector, validate_accession
+from PyNCBI.domains.geo.planning import _select_supp_urls
 from PyNCBI.domains.geo.resolve import _resolve_assembly_for_gse
 from PyNCBI.domains.geo.urls import rnaseq_counts_url
 from PyNCBI.io.http_client import (
@@ -25,6 +23,7 @@ from PyNCBI.io.http_client import (
     infer_file_type,
 )
 from PyNCBI.parsing.soft_parser import SOFTParser, get_parser
+from PyNCBI.parsing.tabular import parse_delimited_table
 
 if TYPE_CHECKING:
     from PyNCBI.core.protocols import HttpClient
@@ -53,14 +52,9 @@ def _parse_tabular_preview_lines(
             notes=notes or "No tabular lines found in preview chunk.",
         )
 
-    sep = (
-        ","
-        if (".csv" in file_name.lower() or clean_lines[0].count(",") > clean_lines[0].count("\t"))
-        else "\t"
-    )
     sample_block = "\n".join(clean_lines[: max_rows + 1])
     try:
-        df = pd.read_csv(StringIO(sample_block), sep=sep, low_memory=False, **table_read_options())
+        df = parse_delimited_table(sample_block, file_name, keep_id_column=True)
         cols = [str(c) for c in df.columns]
         index_name = cols[0] if cols else ""
         # Show up to first 8 columns per row to keep preview compact
@@ -172,7 +166,7 @@ def preview_geo_file(
     # 2. Series Matrix preview
     if norm_source in ("matrix", "series_matrix"):
         matrix_url = cfg.get_series_matrix_url(accession)
-        fname = matrix_url.split("/")[-1]
+        fname = file_name(matrix_url)
         raw_chunk = client.get_range_bytes(matrix_url, max_bytes=65536)
         if raw_chunk[:2] == b"\x1f\x8b":
             decompressed = zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(raw_chunk)
@@ -215,7 +209,7 @@ def preview_geo_file(
     if norm_source in ("rnaseq", "rnaseq_counts", "rnaseq-counts"):
         assembly = _resolve_assembly_for_gse(accession, "auto", client, soft_parser)
         rnaseq_url = rnaseq_counts_url(accession, assembly=assembly)
-        fname = rnaseq_url.split("file=")[-1]
+        fname = file_name(rnaseq_url)
         raw_chunk = client.get_range_bytes(rnaseq_url, max_bytes=16384)
         if raw_chunk[:2] == b"\x1f\x8b":
             decompressed = zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(raw_chunk)
@@ -248,27 +242,13 @@ def preview_geo_file(
     if not supp_urls:
         raise NoDataAvailableError(accession)
 
-    if file_index is not None:
-        if file_index < 0 or file_index >= len(supp_urls):
-            raise ValueError(
-                f"file_index {file_index} out of range (0..{len(supp_urls) - 1}) for {accession}"
-            )
-        target_url = supp_urls[file_index]
-    elif pattern:
-        pat = pattern.lower()
-        matches = [
-            u
-            for u in supp_urls
-            if fnmatch.fnmatch(u.split("/")[-1].lower(), pat) or pat in u.split("/")[-1].lower()
-        ]
-        if not matches:
-            raise ValueError(f"No supplementary files matched pattern '{pattern}' in {accession}")
-        target_url = matches[0]
+    if file_index is not None or pattern:
+        target_url = _select_supp_urls(supp_urls, accession, file_index, pattern)[0]
     else:
         idx = SmartFileSelector().select(supp_urls, accession)
         target_url = supp_urls[idx]
 
-    fname = target_url.split("/")[-1]
+    fname = file_name(target_url)
     ftype = infer_file_type(fname)
 
     # Handle .tar archive preview

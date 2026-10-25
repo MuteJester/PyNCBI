@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import gzip
-from io import BytesIO, StringIO
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -11,13 +10,13 @@ import pandas as pd
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import NoDataAvailableError, SOFTParseError
+from PyNCBI.core.files import file_name
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
 from PyNCBI.core.types import (
     PARQUET_EXTENSIONS,
     DataStatus,
     is_tabular_file,
-    table_read_options,
     validate_accession,
 )
 from PyNCBI.domains.geo.resolve import _resolve_assembly_for_gse
@@ -30,6 +29,7 @@ from PyNCBI.io.transfer_limits import bounded_transfer
 from PyNCBI.parsing.gds_parser import GDSResult, parse_gds_soft
 from PyNCBI.parsing.matrix_parser import SeriesMatrixParser, SeriesMatrixResult
 from PyNCBI.parsing.soft_parser import SOFTParser, get_parser
+from PyNCBI.parsing.tabular import parse_delimited_table, read_delimited_table
 
 if TYPE_CHECKING:
     from PyNCBI.core.protocols import HttpClient
@@ -197,14 +197,7 @@ def load_rnaseq_counts(
         resolved_assembly = _resolve_assembly_for_gse(gse_id, assembly, client, soft_parser)
         url = rnaseq_counts_url(gse_id, assembly=resolved_assembly, count_type=count_type)
         text = decompress_table_bytes(client.get_bytes(url), context=f"{gse_id} RNA-seq counts")
-        df = pd.read_csv(
-            StringIO(text),
-            sep="\t",
-            index_col=0,
-            low_memory=False,
-            **table_read_options(),
-        )
-        df.index = df.index.astype(str)
+        df = parse_delimited_table(text, file_name(url))
         df.index.name = df.index.name or "GeneID"
 
         if annotate:
@@ -245,37 +238,17 @@ def read_supplementary_table(
 
     if path_str.startswith(("http://", "https://", "ftp://")):
         raw = client.get_bytes(path_str)
-        fname = path_str.split("?")[0].rstrip("/").split("/")[-1].lower()
+        fname = file_name(path_str).lower()
         if fname.endswith(PARQUET_EXTENSIONS):
             return pd.read_parquet(BytesIO(raw))
-        if fname.endswith(".gz"):
-            raw = gzip.decompress(raw)
-        try:
-            text = raw.decode("utf-8")
-        except UnicodeDecodeError:
-            text = raw.decode("latin-1")
-
-        sep = "," if ".csv" in fname else "\t"
-        return pd.read_csv(
-            StringIO(text),
-            sep=sep,
-            index_col=0,
-            low_memory=False,
-            **table_read_options(),
-        )
+        text = decompress_table_bytes(raw, context=fname or "supplementary table")
+        return parse_delimited_table(text, fname)
 
     local_path = Path(url_or_path)
     fname = local_path.name.lower()
     if fname.endswith(".parquet"):
         return pd.read_parquet(local_path)
-    sep = "," if ".csv" in fname else "\t"
-    return pd.read_csv(
-        local_path,
-        sep=sep,
-        index_col=0,
-        low_memory=False,
-        **table_read_options(),
-    )
+    return read_delimited_table(local_path, fname)
 
 
 @bounded_transfer
@@ -328,7 +301,7 @@ def load_sample_record(
     if sample.supplementary_files and source == "auto":
         sample.data = pd.DataFrame(
             {
-                "file": [url.split("/")[-1] for url in sample.supplementary_files],
+                "file": [file_name(url) for url in sample.supplementary_files],
                 "url": sample.supplementary_files,
             }
         )

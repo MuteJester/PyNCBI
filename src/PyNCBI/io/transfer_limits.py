@@ -40,7 +40,7 @@ class TransferBudget:
         with self._lock:
             if self.limit is not None and self.received + size > self.limit:
                 raise DataError(
-                    f"Transfer exceeds max_download_mb={self.max_download_mb}",
+                    f"Transfer of {size} bytes exceeds max_download_mb={self.max_download_mb}",
                     hint="Raise max_download_mb / PYNCBI_MAX_DOWNLOAD_MB, or select fewer files",
                 )
 

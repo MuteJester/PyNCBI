@@ -85,3 +85,19 @@ available through ``str()``, ``to_dict()`` and ``to_markdown()``.
 
 On-page GSM measurements retain full binary64 precision instead of being downcast to
 float32. Integer counts, including ``GSM[feature_id]`` lookups, retain integer precision.
+
+GDS measurements now use the same correctly rounded parser as Series Matrix, GSM and
+supplementary tables. Literal feature IDs such as ``NA`` remain identifiers. Filename
+selection and format detection also recognize percent-encoded URL paths and GEO ``file=``
+query parameters consistently across preview, planning and download.
+Malformed non-numeric GDS measurements raise ``DataError`` instead of silently becoming
+missing values.
+
+Annotation caches now use the shared typed JSON cache under ``annotations/``. Older TSV
+cache files are ignored and annotation is fetched again. Complete and partial gene
+annotations are distinguished explicitly, regardless of the number of rows.
+
+Saved study JSON and its canonical content hash use the same strict JSON semantics as
+CLI/MCP output. Non-finite values become ``null`` and NumPy integers remain JSON numbers.
+Records containing those values may have a different content hash from earlier development
+snapshots; ordinary JSON-native records retain their hashes.

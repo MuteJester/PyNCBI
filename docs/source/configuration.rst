@@ -39,6 +39,11 @@ chunk, and concurrent requests may already be receiving data. The ceiling bounds
 response/file data; it is not an exact cap on network traffic or billing. Direct client
 calls use a per-response default budget.
 
+Preflight size checks use the same operation budget as the transfer, including bytes
+already received. When an explicit client owns a configuration, its default applies
+instead of a competing global default. ``max_download_mb=`` still overrides that default
+for a top-level operation.
+
 The count is bytes delivered by requests after HTTP content decoding, before file/archive
 expansion. It is not a ceiling on RAM usage, uncompressed archive contents, exported CSV
 size, or the total transferred by a session over its lifetime. Budget exhaustion can leave

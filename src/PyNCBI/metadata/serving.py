@@ -7,6 +7,8 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
+from PyNCBI.core.serialization import json_dumps
+
 if TYPE_CHECKING:
     from PyNCBI.metadata.schema import StudyRecord
 
@@ -14,7 +16,6 @@ if TYPE_CHECKING:
 def _collection_fingerprint(items: list[Any]) -> str:
     sample = json.dumps(
         [len(items), str(items[0])[:64] if items else "", str(items[-1])[:64] if items else ""],
-        default=str,
     )
     return hashlib.sha1(sample.encode("utf-8")).hexdigest()[:12]  # noqa: S324 - not security, just a guard
 
@@ -59,14 +60,14 @@ def paginate(
 
 def bounded_payload(payload: dict[str, Any], *, max_chars: int = 60_000) -> dict[str, Any]:
     """Shrink list-valued fields until the JSON fits ``max_chars`` (records what was cut)."""
-    text = json.dumps(payload, default=str)
+    text = json_dumps(payload)
     if len(text) <= max_chars:
         return payload
     out: dict[str, Any] = dict(payload)
     truncated: dict[str, dict[str, int]] = {}
     list_keys = sorted(
         (k for k, v in out.items() if isinstance(v, list) and v),
-        key=lambda k: -len(json.dumps(out[k], default=str)),
+        key=lambda k: -len(json_dumps(out[k])),
     )
     for key in list_keys:
         items = out[key]
@@ -76,14 +77,14 @@ def bounded_payload(payload: dict[str, Any], *, max_chars: int = 60_000) -> dict
             trial = dict(out)
             trial[key] = items[:mid]
             trial["_truncated"] = {**truncated, key: {"shown": mid, "total": len(items)}}
-            if len(json.dumps(trial, default=str)) <= max_chars:
+            if len(json_dumps(trial)) <= max_chars:
                 lo = mid
             else:
                 hi = mid - 1
         out[key] = items[:lo]
         truncated[key] = {"shown": lo, "total": len(items)}
         out["_truncated"] = truncated
-        if len(json.dumps(out, default=str)) <= max_chars:
+        if len(json_dumps(out)) <= max_chars:
             break
     return out
 

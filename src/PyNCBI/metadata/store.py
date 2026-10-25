@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from PyNCBI.core.exceptions import DataError
+from PyNCBI.core.serialization import json_dumps
 from PyNCBI.io.cache import LocalCache
 from PyNCBI.metadata import vocabulary
 from PyNCBI.metadata.schema import SCHEMA_VERSION, StudyRecord, now_iso
@@ -136,18 +137,16 @@ def save_study_record(record: StudyRecord, output_dir: str | Path) -> dict[str, 
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "study.json").write_text(
-        json.dumps(record.to_dict(), indent=2, default=str) + "\n", encoding="utf-8"
-    )
+    (out / "study.json").write_text(json_dumps(record.to_dict(), indent=2) + "\n", encoding="utf-8")
     record.samples_df().to_csv(out / "samples.csv")
     record.harmonized_df().to_csv(out / "samples_harmonized.csv")
     record.provenance_df().to_csv(out / "provenance.csv", index=False)
     (out / "quality.json").write_text(
-        json.dumps(record.quality.to_dict() if record.quality else {}, indent=2) + "\n",
+        json_dumps(record.quality.to_dict() if record.quality else {}, indent=2) + "\n",
         encoding="utf-8",
     )
     (out / "vocabulary.json").write_text(
-        json.dumps(
+        json_dumps(
             {
                 "version": record.source_versions.get("vocabulary", ""),
                 "fields": {k: v.to_dict() for k, v in vocabulary.fields().items()},
@@ -172,7 +171,7 @@ def save_study_record(record: StudyRecord, output_dir: str | Path) -> dict[str, 
         "sample_count": record.sample_count,
         "files": files,
     }
-    (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (out / "manifest.json").write_text(json_dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return manifest
 
 

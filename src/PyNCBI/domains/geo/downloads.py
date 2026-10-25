@@ -261,7 +261,7 @@ def download_geo_files(
             max_download_mb=max_download_mb,
             check_disk_space=check_disk_space,
         )
-        fname = matrix_url.split("/")[-1]
+        fname = download_filename(matrix_url)
         dest_file = dest_root if is_raw_target else target_folder / fname
         client.download_file(matrix_url, dest_file)
         if unpack and dest_file.suffix == ".gz":
@@ -299,7 +299,7 @@ def download_geo_files(
             max_download_mb=max_download_mb,
             check_disk_space=check_disk_space,
         )
-        fname = rnaseq_url.split("file=")[-1]
+        fname = download_filename(rnaseq_url)
         dest_file = dest_root if is_raw_target else target_folder / fname
         client.download_file(rnaseq_url, dest_file)
         if unpack and dest_file.suffix == ".gz":

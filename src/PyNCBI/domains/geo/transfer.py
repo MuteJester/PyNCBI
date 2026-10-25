@@ -163,9 +163,7 @@ def _inspect_urls_parallel(
     if not check_sizes:
         results = []
         for url, source in urls_and_sources:
-            fname = url.rstrip("/").split("/")[-1]
-            if "file=" in url:
-                fname = url.split("file=")[-1].split("&")[0]
+            fname = download_filename(url)
             results.append(
                 NCBIFileInfo(
                     name=fname,

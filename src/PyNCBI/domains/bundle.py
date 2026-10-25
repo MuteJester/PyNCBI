@@ -17,7 +17,6 @@ samples, pubmed, sra, files) into a single self-contained local study directory:
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -28,6 +27,7 @@ import pandas as pd
 
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.serialization import json_dumps
 from PyNCBI.core.types import validate_accession
 from PyNCBI.domains.entrez import fetch_pubmed, fetch_sra_runs
 from PyNCBI.domains.geo import (
@@ -520,9 +520,7 @@ def build_study_bundle(
             "report": report.to_dict(),
             "pubmed": [a.to_dict() for a in articles],
         }
-        (out / "bundle.json").write_text(
-            json.dumps(study_payload, indent=2, default=str), encoding="utf-8"
-        )
+        (out / "bundle.json").write_text(json_dumps(study_payload, indent=2), encoding="utf-8")
         task.complete(
             f"Study bundle for {gse_id} written to {out} ({len(bundle.files)} files, {len(bundle.warnings)} warning(s))"
         )

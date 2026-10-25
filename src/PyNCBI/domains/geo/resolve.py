@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import fnmatch
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import NoDataAvailableError
+from PyNCBI.core.files import file_name, matches_file
 from PyNCBI.core.types import validate_accession
 from PyNCBI.domains.geo.samples import (
     _apply_sample_filter,
@@ -35,14 +35,6 @@ class CohortFile:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-def _match_filename(name: str, pattern: str | None) -> bool:
-    if not pattern:
-        return True
-    pat = pattern.lower()
-    low = name.lower()
-    return fnmatch.fnmatch(low, pat) or pat in low
 
 
 def resolve_cohort_files(
@@ -85,8 +77,8 @@ def resolve_cohort_files(
     for gsm in gsm_ids:
         for col in supp_cols:
             for url in supplementary_urls(info_df.at[gsm, col]):
-                fname = url.split("?")[0].rstrip("/").split("/")[-1]
-                if _match_filename(fname, pattern):
+                fname = file_name(url)
+                if matches_file(url, pattern):
                     resolved.append(CohortFile(gsm_id=gsm, url=url, file_name=fname))
     return resolved
 

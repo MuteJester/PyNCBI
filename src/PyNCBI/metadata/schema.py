@@ -8,13 +8,14 @@ normalized value carries its provenance (source, source key, rule, confidence).
 from __future__ import annotations
 
 import hashlib
-import json
 import typing
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
+
+from PyNCBI.core.serialization import json_dumps
 
 SCHEMA_VERSION = "1.0"
 JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
@@ -360,7 +361,7 @@ class StudyRecord:
         data = self.to_dict()
         for volatile in ("retrieved_at", "quality"):
             data.pop(volatile, None)
-        return json.dumps(data, sort_keys=True, separators=(",", ":"), default=str)
+        return json_dumps(data, sort_keys=True, separators=(",", ":"))
 
     def content_hash(self) -> str:
         """SHA-256 of the canonical JSON; equal hashes mean identical NCBI content."""
