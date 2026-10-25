@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 
-import pandas as pd
 import pytest
 
+from native_support import cell, identifiers, table_empty
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.config import Config
 from PyNCBI.core.exceptions import DataError, NoDataAvailableError
@@ -165,9 +165,9 @@ def test_parse_blast_xml_flattens_hits_and_best_hsp():
     assert res.hits[1].percent_identity == pytest.approx(290 / 299 * 100, rel=1e-6)
     assert res.stats["db_num"] == 100
 
-    df = res.hits_df()
-    assert isinstance(df, pd.DataFrame) and list(df.index) == ["NM_007294", "XM_001"]
-    assert df.index.name == "accession" and df.loc["NM_007294", "bit_score"] == pytest.approx(
+    df = res.hits_table()
+    assert isinstance(df, dict) and list(identifiers(df)) == ["NM_007294", "XM_001"]
+    assert df["columns"][0] == "accession" and cell(df, "NM_007294", "bit_score") == pytest.approx(
         554.517
     )
     d = res.to_dict()
@@ -179,7 +179,7 @@ def test_parse_blast_xml_without_hits_and_with_garbage():
     empty = parse_blast_xml(
         BLAST_XML.replace(BLAST_XML[BLAST_XML.index("<Hit>") : BLAST_XML.rindex("</Hit>") + 6], "")
     )
-    assert empty.hit_count == 0 and empty.hits == [] and empty.hits_df().empty
+    assert empty.hit_count == 0 and empty.hits == [] and table_empty(empty.hits_table())
     with pytest.raises(DataError, match="(?i)blast"):
         parse_blast_xml("<html>Server error</html>")
 

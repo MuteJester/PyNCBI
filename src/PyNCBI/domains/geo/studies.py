@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.exceptions import InvalidModeError, NoDataAvailableError
+from PyNCBI.core.tables import Table, table
 from PyNCBI.core.types import (
     FetchMode,
     IndexFileSelector,
@@ -15,7 +14,7 @@ from PyNCBI.core.types import (
     SmartFileSelector,
     is_tabular_file,
 )
-from PyNCBI.domains.geo.matrices import _value_series, map_columns_to_gsms
+from PyNCBI.domains.geo.matrices import join_sample_values, map_columns_to_gsms, sample_values
 from PyNCBI.domains.geo.records import (
     SAMPLE_FAILURES,
     SampleFailure,
@@ -80,41 +79,42 @@ class SeriesRequest:
 
 
 def assign_matrix(
-    state: SeriesState, matrix: pd.DataFrame, source: str, source_url: str = ""
+    state: SeriesState, matrix: Table, source: str, source_url: str = ""
 ) -> list[str]:
-    mapping, notes = map_columns_to_gsms([str(c) for c in matrix.columns], state.samples_df)
-    attached = False
-    for column in matrix.columns:
-        gsm = mapping.get(str(column))
-        if gsm is None or gsm not in state.samples:
-            continue
-        series = matrix[column].copy()
-        series.name = gsm
-        sample = state.samples[gsm]
-        sample.data, sample.source, sample.source_url = series, source, source_url
-        attached = True
-    # Sample state is canonical once columns are attached. Retain a published matrix
-    # only as the fallback for labels that cannot be mapped to any loaded sample.
-    state.matrix, state.source = (None if attached else matrix), source
+    mapping, notes = map_columns_to_gsms(matrix["columns"][1:], state.sample_table)
+    selected = [name for name in matrix["columns"][1:] if name in mapping]
+    if mapping:
+        names = ["feature_id", *[mapping[name] for name in selected]]
+        if names != matrix["columns"]:
+            positions = [0, *[matrix["columns"].index(name) for name in selected]]
+            matrix = table(names, ([row[index] for index in positions] for row in matrix["rows"]))
+        for gsm in names[1:]:
+            if gsm not in state.samples:
+                continue
+            sample = state.samples[gsm]
+            sample.data = None
+            sample._matrix, sample.matrix_column = matrix, gsm
+            sample.source, sample.source_url = source, source_url
+    state.matrix, state.source = matrix, source
     return notes
 
 
-def sample_matrix(state: SeriesState) -> pd.DataFrame:
-    """Assemble current sample values, never file manifests, in study order."""
-    values: list[pd.Series] = []
+def sample_matrix(state: SeriesState) -> Table:
+    if state.matrix is not None and all(sample.data is None for sample in state.samples.values()):
+        return state.matrix
+    from PyNCBI.domains.geo.records import sample_data
+
+    values = []
     for gsm, sample in state.samples.items():
-        if sample.data is None or sample.source == "files":
+        if sample.source == "files":
             continue
-        series = (
-            sample.data if isinstance(sample.data, pd.Series) else _value_series(sample.data, gsm)
-        )
-        if series is not None:
-            series = series.copy()
-            series.name = gsm
-            values.append(series)
-    if values:
-        return pd.concat(values, axis=1)
-    return state.matrix.copy() if state.matrix is not None else pd.DataFrame()
+        data = sample_data(sample)
+        if data is None:
+            continue
+        selected = sample_values(data, gsm)
+        if selected is not None:
+            values.append(selected)
+    return join_sample_values(values) if values else state.matrix or table()
 
 
 @bounded_transfer
@@ -138,7 +138,7 @@ def load_series_record(
         result = _resolve_expression(
             gse_id, metadata=state, max_workers=max_workers, http_client=http_client, parser=parser
         )
-        assign_matrix(state, result.matrix_df, result.source, result.source_url)
+        assign_matrix(state, result.matrix, result.source, result.source_url)
         return state
     if request.mode == FetchMode.PER_GSM:
 
@@ -160,7 +160,7 @@ def load_series_record(
         return state
     if request.mode == FetchMode.SERIES_MATRIX:
         matrix_result = load_series_matrix(gse_id, http_client=http_client)
-        matrix, source = matrix_result.matrix_df, "series_matrix"
+        matrix, source = matrix_result.matrix, "series_matrix"
     elif request.mode == FetchMode.RNASEQ_COUNTS:
         assembly = resolve_rnaseq_assembly(state.details)
         if assembly is None:
@@ -183,7 +183,7 @@ def load_series_record(
         if not urls:
             raise NoDataAvailableError(gse_id)
         url = urls[selector.select(urls, gse_id)]
-        if not is_tabular_file(url, include_parquet=True):
+        if not is_tabular_file(url):
             raise NoDataAvailableError(
                 gse_id,
                 detail="selected supplementary file is not a readable table; use download_supplementary() for raw files",
@@ -191,7 +191,7 @@ def load_series_record(
         matrix = read_supplementary_table(url, http_client=http_client)
         assign_matrix(state, matrix, "supplementary_table", url)
         return state
-    if matrix.empty:
+    if not matrix["rows"]:
         raise NoDataAvailableError(gse_id, detail=f"{source} has no measurements")
     assign_matrix(state, matrix, source)
     return state

@@ -14,11 +14,10 @@ from concurrent.futures import as_completed
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.exceptions import error_payload
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import Table, from_records
 from PyNCBI.io.http_client import format_size_human, get_default_client
 from PyNCBI.io.transfer_limits import ContextThreadPoolExecutor as ThreadPoolExecutor
 
@@ -64,13 +63,9 @@ class ScreeningResult:
     saved_path: Path | None = None
 
     @property
-    def table(self) -> pd.DataFrame:
-        """The screen as a DataFrame indexed by `gse_id`."""
-        if not self.rows:
-            return pd.DataFrame(columns=list(TABLE_COLUMNS), index=pd.Index([], name="gse_id"))
-        df = pd.DataFrame(self.rows).set_index("gse_id")
-        df.index.name = "gse_id"
-        return df[[c for c in TABLE_COLUMNS if c in df.columns]]
+    def table(self) -> Table:
+        """Native study comparison records, with an explicit gse_id field."""
+        return from_records(self.rows, ["gse_id", *TABLE_COLUMNS])
 
     @property
     def study_count(self) -> int:
@@ -202,7 +197,7 @@ def screen_studies(
         sort_by: Column to sort by, descending (e.g. ``'sample_count'``, ``'quality_score'``);
             `None` keeps the input / search order
         max_workers: Studies screened in parallel (default 4)
-        save_to: Optional path for the table (.csv, .tsv, .parquet, .json)
+        save_to: Optional path for the table (.csv, .tsv, .json)
         http_client: Optional HTTP client
 
     Returns:

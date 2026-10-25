@@ -11,7 +11,7 @@ Whenever you need to search NCBI, inspect GEO studies (`GSE`/`GSM`/`GPL`), extra
 1. **Batch GSE Sample Metadata**: Fetching sample metadata for a 500-sample GSE via manual loops takes 500 HTTP requests. `pyncbi samples <GSE>` fetches all samples in **one batch metadata request** and automatically aligns ragged `!Sample_characteristics_ch1` `key: value` attributes into clean columns.
 2. **Preflight File Inspection (No Blind Multi-GB Downloads)**: `pyncbi inspect <GSE>` checks all supplementary files, Series Matrix files, and NCBI RNA-seq count tables via HTTP `HEAD` and reports exact file sizes (`12.4 MB`, `4.2 GB`) and cohort phenotype distributions *before* you download anything.
 3. **Automatic `ftp://` to `https://` & NCBI Rate Limiting**: Automatically rewrites NCBI `ftp://` links to `https://` and enforces NCBI's 3 req/s (or 10 req/s with `NCBI_API_KEY`) rate limit across threads.
-4. **Zero Unwanted Post-Processing**: Downloads raw files and tables exactly as hosted on NCBI, outputting neatly formatted information either **right into the terminal** (`text`, `--markdown`, `--json`) or **saved to organized files** (`.csv`, `.tsv`, `.parquet`, `.json`, or unpacked archives).
+4. **Zero Unwanted Post-Processing**: Downloads raw files and tables exactly as hosted on NCBI, outputting neatly formatted information either **right into the terminal** (`text`, `--markdown`, `--json`) or **saved to organized files** (`.csv`, `.tsv`, `.json`, or unpacked archives).
 
 ---
 
@@ -19,7 +19,6 @@ Whenever you need to search NCBI, inspect GEO studies (`GSE`/`GSM`/`GPL`), extra
 If `pyncbi` is not yet installed in the environment, install it first:
 ```bash
 pip install PyNCBI
-pip install "PyNCBI[parquet]"   # only if you want `-o table.parquet`; .csv/.tsv/.json need nothing extra
 ```
 
 ---
@@ -48,7 +47,7 @@ pyncbi inspect GSE85506 --json
 # View, filter (--where), or save the organized sample metadata & unpacked characteristics table (O(1) single request)
 pyncbi samples GSE85506 --markdown
 pyncbi samples GSE152418 --where "severity == 'Severe'" -o severe_samples.csv
-pyncbi samples GSE85506 -o GSE85506_samples.parquet
+pyncbi samples GSE85506 -o GSE85506_samples.json
 
 # Stream & preview the first few rows, column names, gene ID format, or .tar archive members of a remote file from a bounded prefix
 pyncbi preview GSE152418 --source supp --rows 5 --markdown
@@ -60,8 +59,8 @@ pyncbi preview GSE152418 --source rnaseq --rows 5 --markdown
 # List all downloadable files and their indices/sizes for an accession
 pyncbi files GSE85506
 
-# Download and parse the GEO Series Matrix directly to Parquet or CSV
-pyncbi download GSE85506 --source matrix -o GSE85506_matrix.parquet
+# Download and parse the GEO Series Matrix directly to JSON or CSV
+pyncbi download GSE85506 --source matrix -o GSE85506_matrix.json
 
 # Download NCBI-generated RNA-seq counts (for sequencing studies)
 pyncbi download GSE152418 --source rnaseq -o GSE152418_raw_counts.tsv.gz
@@ -166,7 +165,7 @@ with PyNCBI.Session(api_key=KEY, cache_dir="./agent-1", max_download_mb=500) as 
     s.build_study_record("GSE152418")  # session client, cache and budget applied automatically
     s.load_expression("GSE152418")
 ```
-Identical metadata requests are reused for 300 s, so calling `inspect` then `metadata` then `expression` on one study costs 4 NCBI requests instead of 9. Set `PYNCBI_HTTP_CACHE_TTL=0` to disable. Polling endpoints and file downloads are never cached.
+Identical metadata requests within the same client are reused for 300 s, reducing repeated requests across inspection, metadata and expression workflows. Set `PYNCBI_HTTP_CACHE_TTL=0` to disable. Polling endpoints and file downloads are never cached.
 
 ### Cross-Database Linking, SRA RunInfo & FASTA Sequences (`pyncbi link`, `pyncbi sra`, `pyncbi fasta`, `pyncbi pubmed`, `pyncbi gene`)
 ```bash
@@ -201,7 +200,7 @@ report = PyNCBI.inspect_accession("GSE85506")
 print(report.to_markdown())
 
 # 2. Extract & optionally filter sample metadata & unpacked characteristics in 1 HTTP request
-samples_df, chars_df, summaries = PyNCBI.extract_gse_samples(
+samples, characteristics, summaries = PyNCBI.extract_gse_samples(
     "GSE152418",
     where="severity == 'Severe'",
     save_to="severe_samples.csv",
@@ -217,13 +216,13 @@ geo_hits = PyNCBI.search_geo(
 )
 papers = PyNCBI.search_pubmed("alzheimer microglia single cell", limit=5)
 genes = PyNCBI.search_gene("APOE", organism="Homo sapiens")
-sra_df = PyNCBI.fetch_sra_runs("GSE152418", save_to="sra_runs.csv")
+sra = PyNCBI.fetch_sra_runs("GSE152418", save_to="sra_runs.csv")
 fasta_recs = PyNCBI.fetch_fasta("NM_007294.4", db="nuccore", seq_start=1, seq_stop=300)
 
-# 5. Load Series Matrix or NCBI RNA-seq counts directly into pandas DataFrames
+# 5. Load Series Matrix or NCBI RNA-seq counts as native columns/rows dictionaries
 matrix_res = PyNCBI.load_series_matrix("GSE85506")
-expr_df = matrix_res.matrix_df  # features (ID_REF) x samples (GSM)
-meta_df = matrix_res.characteristics_df  # samples (GSM) x unpacked characteristics
+expression = matrix_res.matrix  # features (ID_REF) x samples (GSM)
+metadata = matrix_res.characteristics_table  # samples (GSM) x unpacked characteristics
 
 # 6. Download raw supplementary files as hosted on NCBI
 paths = PyNCBI.download_geo_files(
@@ -244,9 +243,9 @@ snp = PyNCBI.fetch_dbsnp("rs7412")[0]
 
 # 8. Object-oriented GSM / GSE classes
 gse = PyNCBI.GSE("GSE62003", shell_only=True)
-print(gse.characteristics_df.head())
+print(gse.characteristics_table["rows"][:5])
 gsm = PyNCBI.GSM("GSM1518180")
-print(gsm.data.head())
+print(gsm.data["rows"][:5] if gsm.data else [])
 ```
 
 ## Output and limits
@@ -259,3 +258,13 @@ including metadata fetched inside an operation. It counts delivered HTTP body by
 archive expansion, not lifetime session traffic. Zero disables it. Inspect the download plan
 first and check free space for extraction. HTTP MCP requires initialization and session IDs;
 send one JSON-RPC message per POST.
+
+## Native runtime contract
+
+PyNCBI has no third-party runtime dependencies. Table results are ordinary dictionaries
+with `columns` and `rows`; metadata records use native dictionaries/lists. The first
+measurement column is `feature_id`. Callers choose their own DataFrame/analysis library
+or YAML/Parquet converter. Built-in exports are JSON, CSV and TSV. Use
+`iter_supplementary_records(url)` for large files and close its generator when stopping
+early. Use `iter_records(table)` for dictionaries from an already loaded table.
+CLI/MCP native-data envelopes use schema version 2.0.

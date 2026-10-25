@@ -62,10 +62,10 @@ from PyNCBI.core.exceptions import (
     redact_url,
 )
 from PyNCBI.core.formatter import (
-    format_dataframe_preview,
+    format_table_preview,
     render_output,
     save_data,
-    summarize_characteristics_df,
+    summarize_characteristics,
 )
 from PyNCBI.core.logging import (
     LogLevel,
@@ -105,6 +105,7 @@ from PyNCBI.core.reporter import (
     get_reporter,
     verbosity_scope,
 )
+from PyNCBI.core.tables import Table, iter_records
 from PyNCBI.core.types import (
     DataStatus,
     FetchMode,
@@ -157,6 +158,7 @@ from PyNCBI.domains import (
     fetch_variants,
     gse_of_gsm,
     inspect_accession,
+    iter_supplementary_records,
     link_accession,
     load_expression,
     load_gds,
@@ -217,6 +219,8 @@ from PyNCBI.parsing import parse_characteristics
 from PyNCBI.session import Session
 
 __all__ = [
+    "Table",
+    "iter_records",
     # Version info
     "__version__",
     "__author__",
@@ -260,6 +264,7 @@ __all__ = [
     "load_series_matrix",
     "load_rnaseq_counts",
     "read_supplementary_table",
+    "iter_supplementary_records",
     "download_geo_files",
     "download_many",
     "build_study_bundle",
@@ -337,9 +342,9 @@ __all__ = [
     "NucleotideRecord",
     "TaxonRecord",
     "AgentEnvelope",
-    "summarize_characteristics_df",
+    "summarize_characteristics",
     "save_data",
-    "format_dataframe_preview",
+    "format_table_preview",
     "render_output",
     # Types & Enums
     "DataStatus",

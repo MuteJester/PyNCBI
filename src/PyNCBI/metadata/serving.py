@@ -7,7 +7,9 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
+from PyNCBI.core.formatter import format_table_preview
 from PyNCBI.core.serialization import json_dumps
+from PyNCBI.core.tables import from_records, iter_records
 
 if TYPE_CHECKING:
     from PyNCBI.metadata.schema import StudyRecord
@@ -131,21 +133,24 @@ def study_markdown(record: StudyRecord, *, max_samples: int = 15) -> str:
     if record.overall_design:
         L += ["", "## Design", record.overall_design]
     if record.samples:
-        hdf = record.harmonized_df()
-        cols = [c for c in hdf.columns if not str(c).startswith("raw:")][:8]
-        raw_cols = [c for c in hdf.columns if str(c).startswith("raw:")][:3]
-        show = cols + raw_cols
-        L += ["", f"## Samples (first {min(max_samples, len(hdf))} of {len(hdf)})"]
-        L.append("| gsm_id | title | " + " | ".join(str(c) for c in show) + " | biosample |")
-        L.append("| :-- | :-- | " + " | ".join(":--" for _ in show) + " | :-- |")
-        title_by = {s.gsm_id: (s.title, s.links.get("biosample", "")) for s in record.samples}
-        for gsm, row in hdf.head(max_samples).iterrows():
-            title, bs = title_by.get(str(gsm), ("", ""))
-            vals = [
-                "" if (v is None or (isinstance(v, float) and v != v)) else str(v)
-                for v in (row[c] for c in show)
-            ]
-            L.append(f"| {gsm} | {title[:40]} | " + " | ".join(vals) + f" | {bs} |")
+        titles = {sample.gsm_id: sample.title for sample in record.samples}
+        biosamples = {sample.gsm_id: sample.links.get("biosample", "") for sample in record.samples}
+        rows = [
+            {
+                "gsm_id": row["gsm_id"],
+                "title": titles.get(str(row["gsm_id"]), ""),
+                "biosample": biosamples.get(str(row["gsm_id"]), ""),
+                **row,
+            }
+            for row in iter_records(record.harmonized_table())
+        ]
+        L += [
+            "",
+            "## Samples",
+            format_table_preview(
+                from_records(rows), mode="markdown", max_rows=max_samples, max_cols=20
+            ),
+        ]
     if record.files:
         L += ["", f"## Files ({len(record.files)})"]
         for f in record.files[:12]:

@@ -25,17 +25,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import DataError, HTTPError, NetworkError, NoDataAvailableError
 from PyNCBI.core.files import file_name as resolve_file_name
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import Table, by_id, from_records, iter_records, project, table
 from PyNCBI.core.types import is_tabular_file, validate_accession
 from PyNCBI.domains.geo.matrices import (
     _GSM_RE,
-    _value_series,
+    join_sample_values,
+    sample_values,
 )
 from PyNCBI.domains.geo.matrices import VALUE_COLUMN_HINTS as VALUE_COLUMN_HINTS
 from PyNCBI.domains.geo.matrices import (
@@ -105,8 +105,8 @@ class ExpressionResult:
 
     gse_id: str
     source: str
-    matrix_df: pd.DataFrame = field(default_factory=pd.DataFrame)
-    samples_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    matrix: Table = field(default_factory=table)
+    sample_table: Table = field(default_factory=table)
     source_file: str = ""
     source_url: str = ""
     column_mapping: dict[str, str] = field(default_factory=dict)
@@ -116,7 +116,7 @@ class ExpressionResult:
 
     @property
     def shape(self) -> tuple[int, int]:
-        return (int(self.matrix_df.shape[0]), int(self.matrix_df.shape[1]))
+        return (len(self.matrix["rows"]), max(0, len(self.matrix["columns"]) - 1))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -125,9 +125,9 @@ class ExpressionResult:
             "source_file": self.source_file,
             "source_url": self.source_url,
             "shape": [self.shape[0], self.shape[1]],
-            "feature_index": str(self.matrix_df.index.name or "feature"),
-            "features_preview": [str(i) for i in self.matrix_df.index[:5]],
-            "samples": [str(c) for c in self.matrix_df.columns],
+            "feature_index": "feature_id",
+            "features_preview": [row[0] for row in self.matrix["rows"][:5]],
+            "samples": self.matrix["columns"][1:],
             "column_mapping": dict(self.column_mapping),
             "candidates": [dict(c) for c in self.candidates],
             "notes": list(self.notes),
@@ -135,7 +135,7 @@ class ExpressionResult:
         }
 
     def to_markdown(self, *, max_rows: int = 8) -> str:
-        from PyNCBI.core.formatter import format_dataframe_preview
+        from PyNCBI.core.formatter import format_table_preview
 
         lines = [
             f"# Expression matrix: {self.gse_id}",
@@ -143,7 +143,7 @@ class ExpressionResult:
             f"- **Source:** `{self.source}`"
             + (f" (`{self.source_file}`)" if self.source_file else ""),
             f"- **Shape:** {self.shape[0]:,} features x {self.shape[1]:,} samples "
-            f"(index: `{self.matrix_df.index.name or 'feature'}`)",
+            f"(index: `{'feature_id'}`)",
         ]
         if self.candidates:
             tried = ", ".join(
@@ -156,14 +156,14 @@ class ExpressionResult:
         lines += [
             "",
             "## Matrix preview",
-            format_dataframe_preview(self.matrix_df, mode="markdown", max_rows=max_rows),
+            format_table_preview(self.matrix, mode="markdown", max_rows=max_rows),
         ]
-        if not self.samples_df.empty:
+        if self.sample_table["rows"]:
             lines += [
                 "",
                 "## Sample sheet preview",
-                format_dataframe_preview(
-                    self.samples_df, mode="markdown", max_rows=max_rows, max_cols=8
+                format_table_preview(
+                    self.sample_table, mode="markdown", max_rows=max_rows, max_cols=8
                 ),
             ]
         return "\n".join(lines)
@@ -232,7 +232,7 @@ def load_expression(
         parser: Optional SOFT parser
 
     Returns:
-        `ExpressionResult` with ``matrix_df`` (features x GSM), the aligned ``samples_df``,
+        `ExpressionResult` with ``matrix`` (features x GSM), the aligned ``sample_table``,
         the ``source`` used, every ``candidate`` considered, and ``notes``.
 
     Raises:
@@ -287,14 +287,14 @@ def _resolve_expression(
             from PyNCBI.domains.geo.records import fetch_series_metadata
 
             gse_info = fetch_series_metadata(gse_id, http_client=client, parser=soft_parser).details
-            samples_df, _char_df, _ = extract_gse_samples(gse_id, where=where, http_client=client)
+            sample_table, _char_df, _ = extract_gse_samples(gse_id, where=where, http_client=client)
         else:
             gse_info = metadata.details
-            samples_df = metadata.samples_df
+            sample_table = metadata.sample_table
             if where:
                 from PyNCBI.domains.geo.samples import _apply_sample_filter
 
-                samples_df = _apply_sample_filter(samples_df, where)
+                sample_table = _apply_sample_filter(sample_table, where)
         is_seq = any("sequencing" in t.lower() for t in gse_info.experiment_types)
 
         order = (
@@ -348,7 +348,6 @@ def _resolve_expression(
                         continue
                     text = _decompress(client.get_bytes(url), context=f"{gse_id} RNA-seq counts")
                     matrix = _read_table_text(text, resolve_file_name(url))
-                    matrix.index.name = matrix.index.name or "GeneID"
                     file_name, file_url = str(entry["name"]), url
 
                 elif source == "series_matrix":
@@ -364,8 +363,8 @@ def _resolve_expression(
                         # record why and let the cascade try the next source.
                         entry["note"] = str(exc.detail or exc)
                         continue
-                    matrix = result.matrix_df
-                    if matrix.empty:
+                    matrix = result.matrix
+                    if not matrix["rows"]:
                         entry["note"] = "Series Matrix carries metadata headers but no data rows"
                         continue
                     file_name, file_url = str(entry["name"]), url
@@ -396,8 +395,9 @@ def _resolve_expression(
 
                 elif source == "per_sample_supplementary":
                     per_sample: list[tuple[str, str]] = []
-                    for gsm_id, row in samples_df.iterrows():
-                        for col in samples_df.columns:
+                    for row in iter_records(sample_table):
+                        gsm_id = row["gsm_id"]
+                        for col in sample_table["columns"]:
                             if not str(col).startswith("supplementary_file"):
                                 continue
                             tabular = next(
@@ -418,10 +418,10 @@ def _resolve_expression(
                         continue
                     task.step(f"Downloading {len(per_sample)} per-sample table(s)")
 
-                    def _one(item: tuple[str, str]) -> pd.Series | None:
+                    def _one(item: tuple[str, str]) -> Table | None:
                         gsm, link = item
                         text = _decompress(client.get_bytes(link), context=f"{gsm} table")
-                        return _value_series(_read_table_text(text, resolve_file_name(link)), gsm)
+                        return sample_values(_read_table_text(text, resolve_file_name(link)), gsm)
 
                     with ThreadPoolExecutor(
                         max_workers=max(1, min(max_workers, len(per_sample)))
@@ -430,8 +430,7 @@ def _resolve_expression(
                     if not series_list:
                         entry["note"] = "per-sample files held no readable measurement column"
                         continue
-                    matrix = pd.concat(series_list, axis=1)
-                    matrix.index.name = matrix.index.name or "feature"
+                    matrix = join_sample_values(series_list)
                     notes.append(
                         f"Joined {len(series_list)} per-sample supplementary table(s) on their feature index"
                     )
@@ -439,8 +438,8 @@ def _resolve_expression(
 
                 elif source == "on_page_tables":
                     with_tables = [
-                        str(g)
-                        for g, row in samples_df.iterrows()
+                        str(row["gsm_id"])
+                        for row in iter_records(sample_table)
                         if str(row.get("data_row_count", "0")).split("\n")[0].strip().isdigit()
                         and int(str(row.get("data_row_count", "0")).split("\n")[0].strip()) > 0
                     ]
@@ -456,19 +455,11 @@ def _resolve_expression(
                         continue
                     task.step(f"Fetching {len(with_tables)} on-page sample table(s)")
 
-                    def _one_table(gsm: str) -> pd.Series | None:
+                    def _one_table(gsm: str) -> Table | None:
                         from PyNCBI.domains.geo.tables import load_gsm_table
 
                         df = load_gsm_table(gsm, http_client=client, parser=soft_parser)
-                        if df.empty:
-                            return None
-                        if gsm in df.columns:
-                            series = df[gsm].copy()
-                            series.name = gsm
-                            return series
-                        return _value_series(
-                            df.drop(columns=[c for c in ("probe",) if c in df.columns]), gsm
-                        )
+                        return sample_values(df, gsm)
 
                     with ThreadPoolExecutor(
                         max_workers=max(1, min(max_workers, len(with_tables)))
@@ -479,8 +470,7 @@ def _resolve_expression(
                     if not series_list:
                         entry["note"] = "on-page tables held no readable values"
                         continue
-                    matrix = pd.concat(series_list, axis=1)
-                    matrix.index.name = matrix.index.name or "probe"
+                    matrix = join_sample_values(series_list)
                     notes.append(f"Joined {len(series_list)} on-page sample table(s)")
                     file_name, file_url = "on-page sample tables", ""
 
@@ -518,7 +508,7 @@ def _resolve_expression(
                             raw = handle.read()
                             if raw[:2] == b"\x1f\x8b":
                                 raw = gzip.decompress(raw)
-                            series = _value_series(
+                            series = sample_values(
                                 _read_table_text(
                                     raw.decode("utf-8", errors="replace"), member.name
                                 ),
@@ -529,8 +519,7 @@ def _resolve_expression(
                     if not series_list:
                         entry["note"] = "archive held no per-sample tabular members"
                         continue
-                    matrix = pd.concat(series_list, axis=1)
-                    matrix.index.name = matrix.index.name or "feature"
+                    matrix = join_sample_values(series_list)
                     notes.append(
                         f"Extracted {len(series_list)} per-sample table(s) from {entry['name']}"
                     )
@@ -577,36 +566,38 @@ def _resolve_expression(
                     )
                 continue
 
-            if matrix.empty:
+            if not matrix["rows"]:
                 continue
 
-            mapping, map_notes = map_columns_to_gsms([str(c) for c in matrix.columns], samples_df)
+            mapping, map_notes = map_columns_to_gsms(matrix["columns"][1:], sample_table)
             if mapping:
-                # Only columns that belong to a sample of this series are kept
                 notes.extend(map_notes)
-                matrix = matrix[[c for c in matrix.columns if str(c) in mapping]]
-                matrix.columns = [mapping[str(c)] for c in matrix.columns]
-                ordered = [g for g in samples_df.index if g in set(matrix.columns)]
-                if ordered:
-                    matrix = matrix[ordered]
+                source_columns = [name for name in matrix["columns"][1:] if name in mapping]
+                selected = project(matrix, ["feature_id", *source_columns])
+                selected["columns"] = ["feature_id", *[mapping[name] for name in source_columns]]
+                available = set(selected["columns"][1:])
+                ordered = [
+                    str(record["gsm_id"])
+                    for record in iter_records(sample_table)
+                    if record["gsm_id"] in available
+                ]
+                matrix = project(selected, ["feature_id", *ordered]) if ordered else selected
             else:
-                # Nothing matched: keep the published columns rather than discard the matrix
-                notes.extend(n for n in map_notes if "unmapped columns" not in n.lower())
-                if not any("kept as published" in n.lower() for n in notes):
-                    notes.append(
-                        "No matrix column matched a sample of this series; columns kept as published"
-                    )
-            if matrix.shape[1] == 0:
-                if candidates and candidates[-1].get("source") == source:
-                    candidates[-1]["note"] = "no column could be matched to a sample of this series"
+                notes.extend(note for note in map_notes if "unmapped columns" not in note.lower())
+                if not any("kept as published" in note.lower() for note in notes):
+                    notes.append("No matrix column matched a sample; labels kept as published")
+            if len(matrix["columns"]) <= 1:
                 continue
-
-            aligned = samples_df.loc[[g for g in matrix.columns if g in samples_df.index]]
+            lookup = by_id(sample_table, "gsm_id") if sample_table["rows"] else {}
+            aligned = from_records(
+                (lookup[name] for name in matrix["columns"][1:] if name in lookup),
+                sample_table["columns"],
+            )
             result_obj = ExpressionResult(
                 gse_id=gse_id,
                 source=source,
-                matrix_df=matrix,
-                samples_df=aligned if not aligned.empty else samples_df,
+                matrix=matrix,
+                sample_table=aligned if aligned["rows"] else sample_table,
                 source_file=file_name,
                 source_url=file_url,
                 column_mapping=mapping,
@@ -622,18 +613,18 @@ def _resolve_expression(
                         looks_like_gene_id_index,
                     )
 
-                    if looks_like_gene_id_index(matrix.index):
+                    if looks_like_gene_id_index(row[0] for row in matrix["rows"]):
                         assembly = resolve_rnaseq_assembly(gse_info)
                         if assembly is None:
                             raise NoDataAvailableError(
                                 gse_id, detail="no NCBI RNA-seq assembly for the study organism"
                             )
-                        result_obj.matrix_df = annotate_gene_ids(
+                        result_obj.matrix = annotate_gene_ids(
                             matrix, assembly=assembly, http_client=client
                         )
                         notes.append("Prepended gene annotation columns (Entrez GeneID index)")
                     elif gse_info.platforms:
-                        result_obj.matrix_df = annotate_probes(
+                        result_obj.matrix = annotate_probes(
                             matrix, gse_info.platforms[0], http_client=client
                         )
                         notes.append(
@@ -646,9 +637,9 @@ def _resolve_expression(
 
             if save_to is not None:
                 dest = Path(save_to)
-                result_obj.saved_path = save_data(result_obj.matrix_df, dest)
+                result_obj.saved_path = save_data(result_obj.matrix, dest)
                 sheet = dest.with_name(f"{dest.stem}_samples.csv")
-                save_data(result_obj.samples_df, sheet)
+                save_data(result_obj.sample_table, sheet)
                 notes.append(f"Saved matrix to {result_obj.saved_path} and sample sheet to {sheet}")
 
             rows, cols = result_obj.shape

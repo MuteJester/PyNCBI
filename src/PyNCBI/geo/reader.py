@@ -6,7 +6,7 @@ sample extraction, matrix parsing, and download engine.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PyNCBI.core.logging import get_logger
 from PyNCBI.core.types import DataStatus
@@ -24,10 +24,9 @@ from PyNCBI.parsing.soft_parser import get_parser
 if TYPE_CHECKING:
     from pathlib import Path
 
-    import pandas as pd
-
     from PyNCBI.core.models import InspectionReport
     from PyNCBI.core.protocols import HttpClient
+    from PyNCBI.core.tables import Table
     from PyNCBI.parsing.matrix_parser import SeriesMatrixResult
     from PyNCBI.parsing.soft_parser import SOFTParser
 
@@ -56,15 +55,15 @@ class GEOReader:
             parser=self._parser,
         )
 
-    def parse_gsm_soft(self, gsm_soft: str) -> pd.Series:
-        """Parse SOFT format text for a GSM into a pandas Series."""
-        return self._parser.parse_gsm_to_series(gsm_soft)
+    def parse_gsm_soft(self, gsm_soft: str) -> dict[str, Any]:
+        """Parse SOFT format text for a GSM into a dictionary."""
+        return self._parser.parse_gsm_record(gsm_soft)
 
     def gsms_from_gse_soft(self, gse_soft: str) -> list[str]:
         """Extract GSM IDs from GSE SOFT format text."""
         return self._parser.extract_gsm_ids(gse_soft)
 
-    def extract_gsm_info(self, gsm_id: str) -> pd.Series:
+    def extract_gsm_info(self, gsm_id: str) -> dict[str, Any]:
         """Extract metadata for a single GSM."""
         return fetch_sample_record(gsm_id, http_client=self._http_client, parser=self._parser).info
 
@@ -74,7 +73,7 @@ class GEOReader:
         *,
         where: str | None = None,
         save_to: str | Path | None = None,
-    ) -> pd.DataFrame:
+    ) -> Table:
         """Extract metadata and unpacked characteristics for all GSM samples in a GSE in O(1) batch request."""
         combined_df, _, _ = extract_gse_samples(
             gse_id,
@@ -124,7 +123,7 @@ class GEOReader:
         *,
         count_type: str = "raw_counts",
         save_to: str | Path | None = None,
-    ) -> pd.DataFrame:
+    ) -> Table:
         """Download and parse NCBI-generated RNA-seq count tables for a GSE."""
         return load_rnaseq_counts(
             gse_id,
@@ -146,7 +145,7 @@ class GEOReader:
         }
         return status_map.get(status, -1)
 
-    def get_gse_info(self, gse_id: str) -> pd.Series:
+    def get_gse_info(self, gse_id: str) -> dict[str, Any]:
         """Get GSE series metadata."""
         return fetch_series_metadata(
             gse_id, http_client=self._http_client, parser=self._parser

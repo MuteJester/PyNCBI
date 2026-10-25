@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import json
 
-import pandas as pd
 import pytest
 
+from native_support import cell, fixture_table, identifiers, is_missing, labels, table_empty
+from PyNCBI.core.tables import iter_records
 from PyNCBI.metadata import (
     SCHEMA_VERSION,
     HarmonizedTable,
@@ -174,7 +175,7 @@ def test_vocabulary_is_extensible_and_documented():
 
 
 def test_harmonize_characteristics_produces_normalized_table_with_provenance():
-    chars = pd.DataFrame(
+    chars = fixture_table(
         {
             "gender": ["F", "M", None],
             "age": ["45 years", "61", "NA"],
@@ -182,27 +183,30 @@ def test_harmonize_characteristics_produces_normalized_table_with_provenance():
             "cell type": ["PBMC", "PBMC", "PBMC"],
             "inhibition (average values)": ["1.5", "1.6", "2.5"],
         },
-        index=pd.Index(["GSM1", "GSM2", "GSM3"], name="gsm_id"),
+        index=labels(["GSM1", "GSM2", "GSM3"], name="gsm_id"),
     )
     result = harmonize_characteristics(chars)
     assert isinstance(result, HarmonizedTable)
-    norm = result.normalized_df
-    assert list(norm.index) == ["GSM1", "GSM2", "GSM3"]
+    norm = result.normalized_table
+    assert list(identifiers(norm)) == ["GSM1", "GSM2", "GSM3"]
     assert (
-        norm.loc["GSM1", "sex"] == "female"
-        and norm.loc["GSM2", "sex"] == "male"
-        and pd.isna(norm.loc["GSM3", "sex"])
+        cell(norm, "GSM1", "sex") == "female"
+        and cell(norm, "GSM2", "sex") == "male"
+        and is_missing(cell(norm, "GSM3", "sex"))
     )
     assert (
-        norm.loc["GSM1", "age"] == 45.0
-        and norm.loc["GSM1", "age_unit"] == "year"
-        and norm.loc["GSM1", "age_years"] == 45.0
+        cell(norm, "GSM1", "age") == 45.0
+        and cell(norm, "GSM1", "age_unit") == "year"
+        and cell(norm, "GSM1", "age_years") == 45.0
     )
-    assert norm.loc["GSM2", "age"] == 61.0 and pd.isna(norm.loc["GSM2", "age_unit"])
-    assert norm.loc["GSM2", "disease"] == "Healthy" and bool(norm.loc["GSM2", "is_control"]) is True
-    assert norm.loc["GSM1", "cell_type"] == "PBMC"
+    assert cell(norm, "GSM2", "age") == 61.0 and is_missing(cell(norm, "GSM2", "age_unit"))
+    assert (
+        cell(norm, "GSM2", "disease") == "Healthy"
+        and bool(cell(norm, "GSM2", "is_control")) is True
+    )
+    assert cell(norm, "GSM1", "cell_type") == "PBMC"
     # Unmapped keys are preserved verbatim under their original name, prefixed to avoid collisions
-    assert norm.loc["GSM1", "raw:inhibition (average values)"] == "1.5"
+    assert cell(norm, "GSM1", "raw:inhibition (average values)") == "1.5"
     assert result.unmapped_keys == ["inhibition (average values)"]
     assert result.field_map == {
         "gender": "sex",
@@ -210,8 +214,10 @@ def test_harmonize_characteristics_produces_normalized_table_with_provenance():
         "disease state": "disease",
         "cell type": "cell_type",
     }
-    prov = result.provenance_df
-    row = prov[(prov["gsm_id"] == "GSM1") & (prov["field"] == "sex")].iloc[0]
+    prov = result.provenance_table
+    row = next(
+        item for item in iter_records(prov) if item["gsm_id"] == "GSM1" and item["field"] == "sex"
+    )
     assert (
         row["source_key"] == "gender"
         and row["raw"] == "F"
@@ -223,12 +229,12 @@ def test_harmonize_characteristics_produces_normalized_table_with_provenance():
 
 
 def test_harmonize_handles_empty_and_conflicting_keys():
-    empty = harmonize_characteristics(pd.DataFrame())
-    assert empty.normalized_df.empty and empty.coverage == 0.0
-    both = pd.DataFrame({"sex": ["F"], "gender": ["male"]}, index=["GSM1"])
+    empty = harmonize_characteristics(fixture_table())
+    assert table_empty(empty.normalized_table) and empty.coverage == 0.0
+    both = fixture_table({"sex": ["F"], "gender": ["male"]}, index=["GSM1"])
     res = harmonize_characteristics(both)
     # First source wins; the conflict is recorded instead of silently overwritten
-    assert res.normalized_df.loc["GSM1", "sex"] == "female"
+    assert cell(res.normalized_table, "GSM1", "sex") == "female"
     assert res.conflicts and res.conflicts[0]["field"] == "sex"
 
 

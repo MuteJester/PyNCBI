@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from PyNCBI.core.serialization import json_dumps
+from PyNCBI.core.tables import csv_text
 
 MCP_RESOURCES: list[dict[str, Any]] = [
     {
@@ -109,7 +110,11 @@ def read_resource(uri: str) -> dict[str, Any]:
         if part == "overview":
             return {"uri": target, "mimeType": "text/markdown", "text": record.to_markdown()}
         if part == "samples":
-            return {"uri": target, "mimeType": "text/csv", "text": record.harmonized_df().to_csv()}
+            return {
+                "uri": target,
+                "mimeType": "text/csv",
+                "text": csv_text(record.harmonized_table()),
+            }
         return {
             "uri": target,
             "mimeType": "application/json",
@@ -122,7 +127,7 @@ def read_resource(uri: str) -> dict[str, Any]:
 
         gpl_id = platform_match.group("gpl").upper()
         table = fetch_gpl_table(gpl_id, limit=RESOURCE_TABLE_ROW_LIMIT)
-        return {"uri": target, "mimeType": "text/csv", "text": table.to_csv()}
+        return {"uri": target, "mimeType": "text/csv", "text": csv_text(table)}
 
     raise ValueError(
         f"Unsupported resource URI '{uri}'. Known forms: pyncbi://schema/study, pyncbi://schema/sample, "

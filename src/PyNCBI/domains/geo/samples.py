@@ -1,19 +1,18 @@
-"""Single-request GSE sample metadata extraction and cohort filtering."""
+"""Single-request sample metadata and a small, safe native-record cohort filter."""
 
 from __future__ import annotations
 
+import ast
+import operator
 import re
-from typing import TYPE_CHECKING
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from PyNCBI.core.config import get_config
-from PyNCBI.core.formatter import save_data, summarize_characteristics_df
+from PyNCBI.core.formatter import save_data, summarize_characteristics
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import Table, by_id, from_records, iter_records
 from PyNCBI.core.types import validate_accession
-from PyNCBI.io.http_client import (
-    get_default_client,
-)
+from PyNCBI.io.http_client import get_default_client
 from PyNCBI.parsing.soft_parser import SOFTParser, get_parser
 
 if TYPE_CHECKING:
@@ -22,117 +21,166 @@ if TYPE_CHECKING:
     from PyNCBI.core.models import CharacteristicSummary
     from PyNCBI.core.protocols import HttpClient
 
-if TYPE_CHECKING:
-    from PyNCBI.core.protocols import HttpClient
+_COMPARISONS = {
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+}
 
 
-def _apply_sample_filter(df: pd.DataFrame, where: str) -> pd.DataFrame:
-    """Filter a sample DataFrame by pandas query, key=value, or case-insensitive substring."""
-    if df.empty or not where or not where.strip():
-        return df
+def _query_value(node: ast.AST, record: dict[str, Any], aliases: dict[str, str]) -> Any:
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Name):
+        name = aliases.get(node.id, node.id)
+        if name not in record:
+            raise ValueError(f"Unknown field {name!r}")
+        return record[name]
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return [_query_value(item, record, aliases) for item in node.elts]
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        return not _query_value(node.operand, record, aliases)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        value = _query_value(node.operand, record, aliases)
+        if not isinstance(value, (int, float)):
+            raise ValueError("Unary signs require numbers")
+        return -value if isinstance(node.op, ast.USub) else value
+    if isinstance(node, ast.BoolOp):
+        values = [_query_value(value, record, aliases) for value in node.values]
+        return all(values) if isinstance(node.op, ast.And) else any(values)
+    if isinstance(node, ast.Compare):
+        left = _query_value(node.left, record, aliases)
+        for operation, operand in zip(node.ops, node.comparators, strict=True):
+            right = _query_value(operand, record, aliases)
+            if isinstance(operation, (ast.In, ast.NotIn)):
+                matched = left in right if right is not None else False
+                matched = not matched if isinstance(operation, ast.NotIn) else matched
+            elif type(operation) in _COMPARISONS:
+                if isinstance(right, (int, float)) and isinstance(left, str):
+                    try:
+                        left = float(left)
+                    except ValueError:
+                        left = None
+                try:
+                    matched = _COMPARISONS[type(operation)](left, right)
+                except TypeError:
+                    matched = False
+            else:
+                raise ValueError("Unsupported comparison operator")
+            if not matched:
+                return False
+            left = right
+        return True
+    raise ValueError(
+        "Filters allow field comparisons, membership, and/or/not; calls and attributes are not allowed"
+    )
 
-    expr = where.strip()
-    # 1. Try pandas DataFrame.query() first (converting numeric-looking columns temporarily)
-    query_error: str = ""
-    try:
-        work_df = df.copy()
-        for col in work_df.columns:
-            num_s = pd.to_numeric(work_df[col], errors="coerce")
-            if num_s.notna().sum() >= max(1, int(0.6 * work_df[col].notna().sum())):
-                work_df[col] = num_s
-        matched_idx = work_df.query(expr, engine="python").index
-        return df.loc[matched_idx]
-    except Exception as exc:  # noqa: BLE001 - the fallbacks below handle every shape
-        query_error = f"{type(exc).__name__}: {exc}"
 
-    # 2. Try simple key=value or key:value matching
-    for sep in ("==", "=", ":"):
-        if sep in expr and not any(op in expr for op in (">", "<", "!=")):
-            key_part, val_part = expr.split(sep, 1)
-            key_clean = key_part.strip().strip("'\"`").lower()
-            val_clean = val_part.strip().strip("'\"`").lower()
-            matching_cols = [c for c in df.columns if str(c).lower() == key_clean]
-            if not matching_cols:
-                matching_cols = [c for c in df.columns if key_clean in str(c).lower()]
-            if matching_cols:
-                col = matching_cols[0]
-                mask = df[col].astype(str).str.lower().str.contains(re.escape(val_clean), na=False)  # type: ignore[misc]
-                keyed: pd.DataFrame = df[mask]
-                if not keyed.empty:
-                    return keyed
-                # No match on that column: try the whole-row search below before
-                # concluding that the filter found nothing.
+def _apply_sample_filter(value: Table, where: str) -> Table:
+    """Filter native metadata; never execute supplied expressions as Python code."""
+    if not where or not where.strip():
+        return value
+    expression = where.strip()
+    names = value["columns"]
+    records = list(iter_records(value))
+    if any(
+        token in expression for token in ("==", "!=", ">", "<", " in ", " and ", " or ", "`", "__")
+    ) or expression.startswith("not "):
+        aliases: dict[str, str] = {}
+
+        def replace(match: re.Match[str]) -> str:
+            name = f"_field_{len(aliases)}"
+            aliases[name] = match.group(1)
+            return name
+
+        expression = re.sub(r"`([^`]+)`", replace, expression)
+        for field in sorted(names, key=len, reverse=True):
+            if (
+                not field.isidentifier()
+                and expression.startswith(field)
+                and expression[len(field) :].lstrip().startswith(("==", "!=", ">", "<"))
+            ):
+                alias = f"_field_{len(aliases)}"
+                aliases[alias] = field
+                expression = alias + expression[len(field) :]
                 break
-
-    # 3. Fallback: case-insensitive substring match across all columns
-    pat = re.escape(expr.lower())
-    mask = df.astype(str).apply(lambda s: s.str.lower().str.contains(pat, na=False)).any(axis=1)
-    result: pd.DataFrame = df[mask]
-
-    # Nothing matched, and the expression never parsed as a column expression either. A
-    # typo like `severity === 'Severe'` would otherwise look exactly like "no such samples",
-    # and an agent would abandon a perfectly good study.
-    if result.empty and query_error and any(op in expr for op in ("==", "!=", ">", "<", "=")):
-        columns = ", ".join(str(c) for c in list(df.columns)[:12])
-        more = ", ..." if len(df.columns) > 12 else ""
-        raise ValueError(
-            f"filter {expr!r} matched no samples, and it is not a valid column "
-            f"expression either ({query_error}). Check the column name and quoting. "
-            f"Available columns: {columns}{more}"
-        )
-    return result
+        try:
+            root = ast.parse(expression, mode="eval").body
+            # Validate independently of the number of records, including empty results.
+            _query_value(root, dict.fromkeys(names), aliases)
+            matched = [record for record in records if _query_value(root, record, aliases)]
+        except (SyntaxError, ValueError, TypeError) as exc:
+            raise ValueError(
+                f"Invalid filter {where!r}: {exc}. Available columns: {', '.join(names[:12])}"
+            ) from exc
+        return from_records(matched, names)
+    for separator in ("=", ":"):
+        if separator in expression:
+            key, wanted = (part.strip().strip("'\"`") for part in expression.split(separator, 1))
+            matched_field = next((name for name in names if name.lower() == key.lower()), None)
+            if matched_field is None:
+                raise ValueError(
+                    f"Unknown filter field {key!r}. Available columns: {', '.join(names[:12])}"
+                )
+            return from_records(
+                (
+                    record
+                    for record in records
+                    if wanted.lower() in str(record.get(matched_field, "")).lower()
+                ),
+                names,
+            )
+    needle = expression.lower()
+    return from_records(
+        (
+            record
+            for record in records
+            if any(needle in str(item).lower() for item in record.values())
+        ),
+        names,
+    )
 
 
 def fetch_sample_tables(
-    gse_id: str,
-    *,
-    http_client: HttpClient | None = None,
-    parser: SOFTParser | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Fetch the raw sample metadata and characteristics tables for a GSE in ONE request.
-
-    This is the single HTTP + parse step behind every sample-level feature (the sample
-    table, cohort file resolution, and the `GSE` object), so they can never drift apart.
-
-    Returns:
-        Tuple of `(info_df, characteristics_df)`, both indexed by GSM accession and both
-        possibly empty. Nothing is reordered, filtered, or summarised here.
-    """
+    gse_id: str, *, http_client: HttpClient | None = None, parser: SOFTParser | None = None
+) -> tuple[Table, Table]:
+    """Acquire all batch sample metadata once, returning native tables with gsm_id fields."""
     gse_id = validate_accession(gse_id, "GSE")
     client = http_client or get_default_client()
-    soft_parser = parser or get_parser()
-    batch_text = client.get_text(get_config().get_ncbi_batch_gsm_url(gse_id))
-    return soft_parser.parse_gse_samples_batch(batch_text)
+    return (parser or get_parser()).parse_gse_samples_batch(
+        client.get_text(get_config().get_ncbi_batch_gsm_url(gse_id))
+    )
 
 
-def combine_sample_tables(info_df: pd.DataFrame, char_df: pd.DataFrame) -> pd.DataFrame:
-    """Join sample metadata and unpacked characteristics into one agent-friendly table.
-
-    Characteristics columns that do not already exist in the metadata are appended, the
-    columns most people filter on are moved to the front, and GEO's internal `^SAMPLE`
-    marker column is dropped.
-    """
-    if info_df.empty or char_df.empty:
-        return info_df
-    non_overlapping = [c for c in char_df.columns if c not in info_df.columns]
-    combined_df = pd.concat([info_df, char_df[non_overlapping]], axis=1)
-    front_cols = [
-        c
-        for c in [
-            "title",
-            *list(char_df.columns),
-            "source_name_ch1",
-            "organism_ch1",
-            "platform_id",
-            "library_strategy",
-            "molecule_ch1",
-        ]
-        if c in combined_df.columns
-    ]
-    seen: set[str] = set()
-    ordered_front = [c for c in front_cols if not (c in seen or seen.add(c))]  # type: ignore[func-returns-value]
-    rest_cols = [c for c in combined_df.columns if c not in seen and c != "^SAMPLE"]
-    return combined_df[ordered_front + rest_cols]
+def combine_sample_tables(info: Table, characteristics: Table) -> Table:
+    """Attach unpacked descriptive fields by GSM accession; retain published metadata."""
+    lookup = by_id(characteristics, "gsm_id") if characteristics["rows"] else {}
+    records = []
+    for item in iter_records(info):
+        record = {key: value for key, value in item.items() if key != "^SAMPLE"}
+        for key, value in lookup.get(str(item["gsm_id"]), {}).items():
+            record.setdefault(key, value)
+        records.append(record)
+    names = list(
+        dict.fromkeys(
+            [
+                "gsm_id",
+                "title",
+                *characteristics["columns"],
+                "source_name_ch1",
+                "organism_ch1",
+                "platform_id",
+                "library_strategy",
+                "molecule_ch1",
+                *info["columns"],
+            ]
+        )
+    )
+    present = {key for record in records for key in record}
+    return from_records(records, [name for name in names if name in present])
 
 
 def extract_gse_samples(
@@ -142,51 +190,21 @@ def extract_gse_samples(
     save_to: str | Path | None = None,
     http_client: HttpClient | None = None,
     parser: SOFTParser | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame, list[CharacteristicSummary]]:
-    """Fetch and organize all sample metadata & characteristics for a GSE in 1 HTTP request.
-
-    Args:
-        gse_id: GSE accession (e.g., 'GSE85506')
-        where: Optional filter expression (e.g., "disease == 'COVID-19'", "age > 50", or "PBMC")
-        save_to: Optional file path (.csv, .tsv, .parquet, .json) to save the table
-        http_client: Optional HTTP client
-        parser: Optional SOFT parser
-
-    Returns:
-        Tuple of `(combined_samples_df, characteristics_df, characteristics_summaries)`
-    """
+) -> tuple[Table, Table, list[CharacteristicSummary]]:
+    """Return combined metadata, characteristics and summaries using one batch request."""
     gse_id = validate_accession(gse_id, "GSE")
-    client = http_client or get_default_client()
-    soft_parser = parser or get_parser()
-    reporter = get_reporter()
-
-    with reporter.task(
-        "GEO",
-        "extract_gse_samples",
-        f"Fetching batch sample metadata for {gse_id}",
-        target=gse_id,
-    ) as task:
-        info_df, char_df = fetch_sample_tables(gse_id, http_client=client, parser=soft_parser)
-        total_raw = len(info_df)
-        combined_df = combine_sample_tables(info_df, char_df)
-
+    with get_reporter().task(
+        "GEO", "extract_gse_samples", f"Fetching batch sample metadata for {gse_id}", target=gse_id
+    ):
+        info, characteristics = fetch_sample_tables(gse_id, http_client=http_client, parser=parser)
+        combined = combine_sample_tables(info, characteristics)
         if where:
-            combined_df = _apply_sample_filter(combined_df, where)
-            if not char_df.empty:
-                char_df = char_df.loc[char_df.index.intersection(combined_df.index)]
-            task.step(
-                f"Applied filter '{where}': matched {len(combined_df)} of {total_raw} samples",
-                current=len(combined_df),
-                total=total_raw,
+            combined = _apply_sample_filter(combined, where)
+            selected = set(by_id(combined, "gsm_id")) if combined["rows"] else set()
+            characteristics = from_records(
+                (row for row in iter_records(characteristics) if row["gsm_id"] in selected),
+                characteristics["columns"],
             )
-
-        summaries = summarize_characteristics_df(char_df)
-
-        if save_to is not None and not combined_df.empty:
-            save_data(combined_df, save_to)
-            task.step(f"Saved sample table to {save_to}")
-
-        task.complete(
-            f"Extracted {len(combined_df)} sample(s) and {len(char_df.columns)} characteristic column(s) for {gse_id}"
-        )
-        return combined_df, char_df, summaries
+        if save_to is not None:
+            save_data(combined, save_to)
+        return combined, characteristics, summarize_characteristics(characteristics)

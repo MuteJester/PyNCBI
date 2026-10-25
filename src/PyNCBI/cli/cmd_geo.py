@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from PyNCBI.cli.console import _determine_mode, print  # noqa: A001
 from PyNCBI.core.formatter import (
-    format_dataframe_preview,
+    format_table_preview,
     render_output,
     save_data,
 )
+from PyNCBI.core.tables import iter_records, preview_records
 from PyNCBI.domains.annotation import fetch_gpl_table
 from PyNCBI.domains.expression import load_expression
 from PyNCBI.domains.geo import (
@@ -23,9 +24,7 @@ from PyNCBI.domains.geo import (
     preview_geo_file,
 )
 from PyNCBI.io.http_client import format_size_human
-from PyNCBI.metadata import (
-    harmonize_characteristics,
-)
+from PyNCBI.metadata.harmonize import sample_metadata_view
 
 if TYPE_CHECKING:
     import argparse
@@ -64,31 +63,26 @@ def _cmd_samples(args: argparse.Namespace) -> int:
         args.gse_id,
         where=getattr(args, "where", None),
     )
-    target_df = char_df if args.characteristics_only else combined_df
-    harmonization: dict[str, Any] | None = None
-    if getattr(args, "harmonize", False):
-        table = harmonize_characteristics(char_df)
-        harmonization = table.summary()
-        if args.characteristics_only:
-            target_df = table.normalized_df
-        else:
-            front = table.normalized_df
-            rest = combined_df[[c for c in combined_df.columns if c not in char_df.columns]]
-            target_df = front.join(rest, how="left")
+    target_df, harmonization = sample_metadata_view(
+        combined_df,
+        char_df,
+        chars_only=args.characteristics_only,
+        harmonize=bool(getattr(args, "harmonize", False)),
+    )
     saved_files: list[str] = []
 
-    if args.output and not target_df.empty:
+    if args.output and target_df["rows"]:
         p = save_data(target_df, args.output)
         saved_files.append(str(p))
 
     if mode == "json":
         payload = {
             "gse_id": args.gse_id.upper(),
-            "sample_count": len(target_df),
+            "sample_count": len(target_df["rows"]),
             "characteristics_summary": [cs.to_dict() for cs in summaries],
             "harmonization": harmonization,
-            "columns": [str(c) for c in target_df.columns],
-            "preview": target_df.iloc[: args.max_rows].reset_index().to_dict(orient="records"),
+            "columns": [str(c) for c in target_df["columns"]],
+            "preview": preview_records(target_df, args.max_rows),
         }
         print(
             render_output(
@@ -96,7 +90,7 @@ def _cmd_samples(args: argparse.Namespace) -> int:
                 mode="json",
                 command="samples",
                 target=args.gse_id.upper(),
-                summary=f"Extracted metadata for {len(target_df)} samples in {args.gse_id.upper()}",
+                summary=f"Extracted metadata for {len(target_df['rows'])} samples in {args.gse_id.upper()}",
                 saved_files=saved_files,
             )
         )
@@ -104,7 +98,7 @@ def _cmd_samples(args: argparse.Namespace) -> int:
 
     if mode == "markdown":
         lines = [
-            f"# Sample Metadata & Characteristics: {args.gse_id.upper()} ({len(target_df)} samples)\n"
+            f"# Sample Metadata & Characteristics: {args.gse_id.upper()} ({len(target_df['rows'])} samples)\n"
         ]
         if summaries:
             lines.append("## Characteristics Breakdown")
@@ -113,27 +107,23 @@ def _cmd_samples(args: argparse.Namespace) -> int:
             lines.append("")
         if not args.summary:
             lines.append("## Sample Table Preview")
-            lines.append(
-                format_dataframe_preview(target_df, mode="markdown", max_rows=args.max_rows)
-            )
+            lines.append(format_table_preview(target_df, mode="markdown", max_rows=args.max_rows))
         if saved_files:
             lines.append(f"\n**Saved full sample table to:** `{saved_files[0]}`")
         print("\n".join(lines))
         return 0
 
     # Default text output
-    lines = [f"=== {args.gse_id.upper()} Sample Metadata ({len(target_df)} samples) ==="]
+    lines = [f"=== {args.gse_id.upper()} Sample Metadata ({len(target_df['rows'])} samples) ==="]
     if summaries:
         lines.append("\nCharacteristics Breakdown:")
         for cs in summaries:
             lines.append(f"  • {cs.name}: {cs.format_brief()}")
     if not args.summary:
-        lines.append(
-            "\n" + format_dataframe_preview(target_df, mode="text", max_rows=args.max_rows)
-        )
+        lines.append("\n" + format_table_preview(target_df, mode="text", max_rows=args.max_rows))
     if saved_files:
         lines.append(
-            f"\nSaved full table ({len(target_df)} rows × {len(target_df.columns)} cols) to: {saved_files[0]}"
+            f"\nSaved full table ({len(target_df['rows'])} rows × {len(target_df['columns'])} cols) to: {saved_files[0]}"
         )
     print("\n".join(lines))
     return 0
@@ -327,10 +317,10 @@ def _cmd_gpl(args: argparse.Namespace) -> int:
     if mode == "json":
         payload = {
             "gpl_id": gpl,
-            "shape": [len(df), len(df.columns)],
-            "index_name": df.index.name,
-            "columns": [str(c) for c in df.columns],
-            "preview": df.head(args.max_rows).reset_index().to_dict(orient="records"),
+            "shape": [len(df["rows"]), len(df["columns"])],
+            "index_name": "feature_id",
+            "columns": [str(c) for c in df["columns"]],
+            "preview": preview_records(df, args.max_rows),
         }
         print(
             render_output(
@@ -338,7 +328,7 @@ def _cmd_gpl(args: argparse.Namespace) -> int:
                 mode="json",
                 command="gpl",
                 target=gpl,
-                summary=f"{gpl} platform table: {len(df):,} probes x {len(df.columns)} columns",
+                summary=f"{gpl} platform table: {len(df['rows']):,} probes x {len(df['columns'])} columns",
                 saved_files=saved_files,
             )
         )
@@ -346,9 +336,9 @@ def _cmd_gpl(args: argparse.Namespace) -> int:
     header = (
         f"# Platform Table: {gpl}\n" if mode == "markdown" else f"=== Platform Table: {gpl} ===\n"
     )
-    out = header + format_dataframe_preview(df, mode=mode, max_rows=args.max_rows, max_cols=8)
+    out = header + format_table_preview(df, mode=mode, max_rows=args.max_rows, max_cols=8)
     if saved_files:
-        out += f"\n\nSaved platform table ({len(df):,} probes) to: {saved_files[0]}"
+        out += f"\n\nSaved platform table ({len(df['rows']):,} probes) to: {saved_files[0]}"
     print(out)
     return 0
 
@@ -361,8 +351,8 @@ def _cmd_gds(args: argparse.Namespace) -> int:
     if mode == "json":
         payload = {
             **res.to_dict(),
-            "sample_groups": res.sample_groups_df.reset_index().to_dict(orient="records"),
-            "preview": res.table_df.head(args.max_rows).reset_index().to_dict(orient="records"),
+            "sample_groups": list(iter_records(res.sample_groups)),
+            "preview": preview_records(res.table, args.max_rows),
         }
         print(
             render_output(
@@ -370,7 +360,7 @@ def _cmd_gds(args: argparse.Namespace) -> int:
                 mode="json",
                 command="gds",
                 target=gds,
-                summary=f"{gds}: {res.table_df.shape[0]:,} features x {max(0, res.table_df.shape[1] - 1)} samples, {len(res.subsets)} subset(s)",
+                summary=f"{gds}: {len(res.table['rows']):,} features x {max(0, len(res.table['columns']) - 1)} samples, {len(res.subsets)} subset(s)",
                 saved_files=saved,
             )
         )
@@ -384,9 +374,7 @@ def _cmd_gds(args: argparse.Namespace) -> int:
     for sub in res.subsets:
         lines.append(f"- {sub['type']}: {sub['description']} ({len(sub['sample_ids'])} samples)")
     lines.append("")
-    lines.append(
-        format_dataframe_preview(res.table_df, mode=mode, max_rows=args.max_rows, max_cols=8)
-    )
+    lines.append(format_table_preview(res.table, mode=mode, max_rows=args.max_rows, max_cols=8))
     if saved:
         lines.append(f"\nSaved GDS table to: {saved[0]}")
     print("\n".join(lines))
@@ -414,12 +402,8 @@ def _cmd_expression(args: argparse.Namespace) -> int:
     summary = f"{res.gse_id}: {rows:,} features x {cols:,} samples from '{res.source}'"
     if mode == "json":
         payload = res.to_dict()
-        payload["preview"] = (
-            res.matrix_df.iloc[: args.max_rows, :12].reset_index().to_dict(orient="records")
-        )
-        payload["samples_preview"] = (
-            res.samples_df.iloc[: args.max_rows, :8].reset_index().to_dict(orient="records")
-        )
+        payload["preview"] = preview_records(res.matrix, args.max_rows, 12)
+        payload["samples_preview"] = preview_records(res.sample_table, args.max_rows, 8)
         print(
             render_output(
                 payload,

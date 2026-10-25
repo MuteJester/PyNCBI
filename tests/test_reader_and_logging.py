@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 
-import pandas as pd
 import pytest
 
+from native_support import identifiers
 from PyNCBI.core.config import Config
 from PyNCBI.core.logging import (
     LogLevel,
@@ -62,9 +62,9 @@ def test_georeader_facade_methods(fake_geo, tmp_path):
     df = reader.extract_gse_sample_info(
         "GSE100", where="disease state: Fibromyalgia", save_to=tmp_path / "s.csv"
     )
-    assert list(df.index) == ["GSM1002"] and (tmp_path / "s.csv").exists()
+    assert list(identifiers(df)) == ["GSM1002"] and (tmp_path / "s.csv").exists()
     gsm = reader.extract_gsm_info("GSM1001")
-    assert isinstance(gsm, pd.Series) and gsm.name == "GSM1001" and gsm["title"] == "Control_1"
+    assert isinstance(gsm, dict) and gsm["^SAMPLE"] == "GSM1001" and gsm["title"] == "Control_1"
     assert reader.get_gsm_data_status("GSM1001") == 0
     assert reader.get_gsm_data_status("GSM1002") == 1
     assert reader.get_gsm_data_status("GSM1003") == -1

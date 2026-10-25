@@ -19,22 +19,22 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import (
-    BotChallengeError,
     DataError,
     NoDataAvailableError,
     PyNCBIError,
 )
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import Table, by_id, from_records, is_table, iter_records, project
+from PyNCBI.core.tables import table as make_table
 from PyNCBI.core.types import validate_accession
 from PyNCBI.io.cache import LocalCache
 from PyNCBI.io.http_client import get_default_client
 from PyNCBI.io.transfer_limits import ContextThreadPoolExecutor as ThreadPoolExecutor
 from PyNCBI.parsing.soft_parser import SOFTParser, get_parser
+from PyNCBI.parsing.tabular import parse_delimited_table
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -93,36 +93,26 @@ _DATASETS_BATCH_SIZE = 1000
 _ESUMMARY_BATCH_SIZE = 400
 
 
-# ---------------------------------------------------------------------------
-# Cache helpers
-# ---------------------------------------------------------------------------
-
-
 def _annotation_cache_dir(client: HttpClient) -> Path:
     config = getattr(client, "app_config", None) or get_config()
     return Path(config.cache_folder) / "annotations"
 
 
-def _read_cached_table(path: Path) -> pd.DataFrame | None:
+def _read_cached_table(path: Path) -> tuple[Table, bool] | None:
     payload = LocalCache[dict[str, Any]](path.parent).get(path.name)
-    if not isinstance(payload, dict) or payload.get("version") != 1:
+    if (
+        not isinstance(payload, dict)
+        or payload.get("version") != 2
+        or not is_table(payload.get("table"))
+    ):
         return None
-    table = payload.get("table")
-    if not isinstance(table, pd.DataFrame):
-        return None
-    table.attrs["complete"] = payload.get("complete") is True
-    return table
+    return payload["table"], payload.get("complete") is True
 
 
-def _write_cached_table(df: pd.DataFrame, path: Path) -> None:
+def _write_cached_table(value: Table, path: Path, *, complete: bool = False) -> None:
     LocalCache[dict[str, Any]](path.parent).set(
-        path.name, {"version": 1, "table": df, "complete": bool(df.attrs.get("complete"))}
+        path.name, {"version": 2, "table": value, "complete": complete}
     )
-
-
-# ---------------------------------------------------------------------------
-# GPL platform tables
-# ---------------------------------------------------------------------------
 
 
 def gpl_table_url(gpl_id: str) -> str:
@@ -196,82 +186,52 @@ def fetch_gpl_table(
     use_cache: bool = True,
     http_client: HttpClient | None = None,
     parser: SOFTParser | None = None,
-) -> pd.DataFrame:
-    """Fetch a GPL platform annotation table as a DataFrame indexed by probe `ID`.
-
-    The table is streamed line-by-line from GEO so a `limit` stops the transfer early and
-    an 80 MB platform never has to be held as one string. Full tables are cached locally
-    (`<cache>/annotations/GPLxxxx_table.json.gz`) so repeated annotation is instant.
-
-    Args:
-        gpl_id: Platform accession (e.g., 'GPL570', 'GPL13534')
-        columns: Optional subset of columns to return (the probe `ID` index is always kept)
-        limit: Optional maximum number of probe rows to read
-        save_to: Optional path (.csv, .tsv, .parquet, .json) to save the returned table
-        source: 'auto'/'data' (GEO data table, universal) or 'annot' (NCBI-curated
-            `GPLxxxx.annot.gz` with `Gene symbol` / `Gene ID` columns; not all platforms)
-        use_cache: Read/write the local full-table cache (default True)
-        http_client: Optional HTTP client
-        parser: Optional SOFT parser
-
-    Returns:
-        DataFrame of strings indexed by `ID` with all (or the selected) annotation columns.
-    """
+) -> Table:
+    """Retrieve published platform annotation as a native columns/rows payload."""
     gpl_id = validate_accession(gpl_id, "GPL")
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be non-negative")
     client = http_client or get_default_client()
-    soft_parser = parser or get_parser()
     src = source.strip().lower()
     if src not in ("auto", "data", "annot"):
-        raise ValueError("source must be 'auto', 'data', or 'annot'")
-
+        raise ValueError("source must be auto, data or annot")
     cache_path = (
         _annotation_cache_dir(client) / f"{gpl_id}_{'annot' if src == 'annot' else 'table'}"
     )
-    reporter = get_reporter()
-
-    with reporter.task(
-        "GEO", "fetch_gpl_table", f"Fetching platform table for {gpl_id}", target=gpl_id
-    ) as task:
-        df: pd.DataFrame | None = None
-        if use_cache:
-            df = _read_cached_table(cache_path)
-            if df is not None:
-                task.step(f"Loaded cached {gpl_id} table ({len(df):,} probes)")
-
-        if df is None:
-            url = gpl_annot_url(gpl_id) if src == "annot" else gpl_table_url(gpl_id)
-            lines = client.stream_lines(url)
-            try:
-                df = soft_parser.parse_gpl_table_lines(lines, limit=limit, gpl_id=gpl_id)
-            except NoDataAvailableError:
-                raise
-            except DataError as exc:
-                _explain_missing_platform_table(gpl_id, client, exc)
-                raise  # pragma: no cover - the helper always raises
-            finally:
-                close = getattr(lines, "close", None)
-                if callable(close):
-                    close()
-            if use_cache and limit is None:
-                _write_cached_table(df, cache_path)
-                task.step(f"Cached full {gpl_id} table ({len(df):,} probes)")
-
-        if limit is not None and len(df) > limit:
-            df = df.iloc[:limit]
-        if columns:
-            missing = [c for c in columns if c not in df.columns]
-            if missing:
-                raise DataError(
-                    f"Column(s) {missing} not found in {gpl_id} table",
-                    hint=f"Available columns: {list(df.columns)}",
-                )
-            df = df[list(columns)]
-
-        if save_to is not None:
-            save_data(df, save_to)
-            task.step(f"Saved {gpl_id} table to {save_to}")
-        task.complete(f"{gpl_id}: {len(df):,} probes x {len(df.columns)} annotation column(s)")
-        return df
+    cached = _read_cached_table(cache_path) if use_cache else None
+    value = cached[0] if cached else None
+    if value is None:
+        lines = client.stream_lines(
+            gpl_annot_url(gpl_id) if src == "annot" else gpl_table_url(gpl_id)
+        )
+        try:
+            value = (parser or get_parser()).parse_gpl_table_lines(
+                lines, limit=limit, gpl_id=gpl_id
+            )
+        except NoDataAvailableError:
+            raise
+        except DataError as exc:
+            _explain_missing_platform_table(gpl_id, client, exc)
+            raise
+        finally:
+            close = getattr(lines, "close", None)
+            if callable(close):
+                close()
+        if use_cache and limit is None:
+            _write_cached_table(value, cache_path, complete=True)
+    if limit is not None:
+        value = {"columns": value["columns"], "rows": value["rows"][:limit]}
+    if columns:
+        missing = [name for name in columns if name not in value["columns"]]
+        if missing:
+            raise DataError(
+                f"Column(s) {missing} not found in {gpl_id}",
+                hint=f"Available columns: {value['columns']}",
+            )
+        value = project(value, list(dict.fromkeys(["feature_id", *columns])))
+    if save_to is not None:
+        save_data(value, save_to)
+    return value
 
 
 def detect_gene_columns(gpl_columns: Iterable[str]) -> list[str]:
@@ -288,49 +248,43 @@ def detect_gene_columns(gpl_columns: Iterable[str]) -> list[str]:
     return chosen
 
 
+def _attach_annotations(data: Table, annotations: Table, fields: Sequence[str]) -> Table:
+    missing = [name for name in fields if name not in annotations["columns"]]
+    if missing:
+        raise DataError(
+            f"Annotation fields unavailable: {missing}", hint=f"Available: {annotations['columns']}"
+        )
+    lookup: dict[str, dict[str, Any]] = {}
+    for record in iter_records(annotations):
+        lookup.setdefault(str(record[annotations["columns"][0]]), record)
+    base = [name for name in data["columns"][1:] if name not in fields]
+    positions = [data["columns"].index(name) for name in base]
+    return make_table(
+        [data["columns"][0], *fields, *base],
+        (
+            [
+                row[0],
+                *[(lookup.get(str(row[0]), {}).get(name) or None) for name in fields],
+                *[row[index] for index in positions],
+            ]
+            for row in data["rows"]
+        ),
+    )
+
+
 def annotate_probes(
-    df: pd.DataFrame,
+    data: Table,
     gpl_id: str,
     *,
     columns: Sequence[str] | None = None,
     http_client: HttpClient | None = None,
-) -> pd.DataFrame:
-    """Prepend probe -> gene annotation columns from a GPL table to a probe-indexed matrix.
-
-    Args:
-        df: Matrix indexed by probe IDs (e.g., `load_series_matrix(...).matrix_df`)
-        gpl_id: Platform accession the probes belong to
-        columns: GPL columns to join (default: auto-detected gene symbol + Entrez ID columns)
-        http_client: Optional HTTP client
-
-    Returns:
-        A new DataFrame with the annotation columns first; measurement columns are unchanged.
-    """
-    table = fetch_gpl_table(gpl_id, http_client=http_client)
-    join_cols = list(columns) if columns else detect_gene_columns(table.columns)
-    if not join_cols:
-        raise DataError(
-            f"Could not detect a gene symbol / Entrez ID column on {gpl_id}",
-            hint=f"Pass columns=[...] explicitly. Available: {list(table.columns)[:40]}",
-        )
-    missing = [c for c in join_cols if c not in table.columns]
-    if missing:
-        raise DataError(
-            f"Column(s) {missing} not found in {gpl_id} table",
-            hint=f"Available: {list(table.columns)[:40]}",
-        )
-
-    annot = table[join_cols].replace("", pd.NA)
-    annot = annot[~annot.index.duplicated(keep="first")]
-    aligned = annot.reindex(df.index.astype(str))
-    aligned.index = df.index
-    out = df.drop(columns=[c for c in join_cols if c in df.columns])
-    return pd.concat([aligned, out], axis=1)
-
-
-# ---------------------------------------------------------------------------
-# NCBI RNA-seq gene annotation (Entrez GeneID -> Symbol / GeneType / Ensembl)
-# ---------------------------------------------------------------------------
+) -> Table:
+    """Attach retrieved probe annotation by explicit feature ID without changing values."""
+    annotations = fetch_gpl_table(gpl_id, http_client=http_client)
+    fields = list(columns) if columns else detect_gene_columns(annotations["columns"])
+    if not fields:
+        raise DataError(f"Could not detect gene annotation fields on {gpl_id}")
+    return _attach_annotations(data, annotations, fields)
 
 
 def rnaseq_annotation_url(assembly: str) -> str:
@@ -344,51 +298,38 @@ def rnaseq_annotation_url(assembly: str) -> str:
     return f"{get_config().NCBI_GEO_DOWNLOAD_URL}?type=rnaseq_counts&format=file&file={fname}"
 
 
-def _normalize_annotation_frame(df: pd.DataFrame, source: str) -> pd.DataFrame:
-    """Coerce any source's frame into the canonical annotation table layout."""
-    out = pd.DataFrame(index=df.index.astype(str))
-    out.index.name = "GeneID"
-    for col in ANNOTATION_TABLE_COLUMNS:
-        if col == "source":
-            out[col] = source
-        elif col in df.columns:
-            out[col] = df[col].astype(str).fillna("")
-        else:
-            out[col] = ""
-    extra = [c for c in df.columns if c not in out.columns and c not in ("GeneID",)]
-    for col in extra:
-        out[col] = df[col].astype(str).fillna("")
-    return out
+def _normalize_annotation_records(records: Iterable[dict[str, Any]], source: str) -> Table:
+    rows = []
+    for record in records:
+        identifier = str(record.get("gene_id", record.get("GeneID", record.get("feature_id", ""))))
+        row = {"gene_id": identifier}
+        for name in ANNOTATION_TABLE_COLUMNS:
+            value = record.get(name, record.get("ChrAcc", "") if name == "Chromosome" else "")
+            row[name] = source if name == "source" else str(value) if value is not None else ""
+        for name, value in record.items():
+            if name not in row and name not in ("GeneID", "feature_id"):
+                row[name] = str(value) if value is not None else ""
+        rows.append(row)
+    return from_records(rows) if rows else make_table(["gene_id", *ANNOTATION_TABLE_COLUMNS])
 
 
-def _fetch_geo_annotation_file(assembly: str, client: HttpClient) -> pd.DataFrame | None:
-    """Download the full NCBI annotation table from GEO; None if browser-gated/unavailable."""
-    from PyNCBI.domains.geo import decompress_table_bytes
+def _fetch_geo_annotation_file(assembly: str, client: HttpClient) -> Table | None:
+    from PyNCBI.domains.geo.transfer import decompress_table_bytes
 
-    url = rnaseq_annotation_url(assembly)
     try:
-        text = decompress_table_bytes(client.get_bytes(url), context=f"{assembly} annotation table")
-    except (BotChallengeError, DataError, PyNCBIError) as exc:
+        text = decompress_table_bytes(
+            client.get_bytes(rnaseq_annotation_url(assembly)), context=f"{assembly} annotation"
+        )
+    except PyNCBIError as exc:
         get_reporter().warn(
-            "GEO",
-            f"GEO annotation file unavailable ({type(exc).__name__}); falling back to NCBI Datasets/Gene",
-            operation="load_rnaseq_annotation",
-            target=assembly,
+            "GEO", f"Annotation file unavailable ({type(exc).__name__}); using NCBI gene records"
         )
         return None
-    from io import StringIO
-
-    df = pd.read_csv(StringIO(text), sep="\t", dtype=str, keep_default_na=False, low_memory=False)
-    id_col = "GeneID" if "GeneID" in df.columns else df.columns[0]
-    df = df.set_index(id_col)
-    if "Chromosome" not in df.columns and "ChrAcc" in df.columns:
-        df["Chromosome"] = df["ChrAcc"]
-    table = _normalize_annotation_frame(df, "geo_annot_file")
-    table.attrs["complete"] = True
-    return table
+    value = parse_delimited_table(text, "annotation.tsv", id_field="gene_id", numeric=False)
+    return _normalize_annotation_records(iter_records(value), "geo_annot_file")
 
 
-def _fetch_datasets_gene_reports(gene_ids: list[str], client: HttpClient) -> pd.DataFrame:
+def _fetch_datasets_gene_reports(gene_ids: list[str], client: HttpClient) -> Table:
     """Annotate GeneIDs via the NCBI Datasets v2 gene API (<=1000 IDs per request)."""
     base = get_config().NCBI_DATASETS_BASE_URL
     batches = [
@@ -425,12 +366,11 @@ def _fetch_datasets_gene_reports(gene_ids: list[str], client: HttpClient) -> pd.
         for rows in pool.map(_one, batches):
             all_rows.extend(rows)
     if not all_rows:
-        return pd.DataFrame(columns=list(ANNOTATION_TABLE_COLUMNS)).rename_axis("GeneID")
-    df = pd.DataFrame(all_rows).set_index("GeneID")
-    return _normalize_annotation_frame(df, "ncbi_datasets")
+        return make_table(["gene_id", *ANNOTATION_TABLE_COLUMNS])
+    return _normalize_annotation_records(all_rows, "ncbi_datasets")
 
 
-def _fetch_esummary_gene(gene_ids: list[str], client: HttpClient) -> pd.DataFrame:
+def _fetch_esummary_gene(gene_ids: list[str], client: HttpClient) -> Table:
     """Annotate GeneIDs via E-Utilities `esummary db=gene` (symbol/description/chromosome)."""
     cfg = get_config()
     rows: list[dict[str, Any]] = []
@@ -457,10 +397,8 @@ def _fetch_esummary_gene(gene_ids: list[str], client: HttpClient) -> pd.DataFram
                 }
             )
     if not rows:
-        return pd.DataFrame(columns=list(ANNOTATION_TABLE_COLUMNS)).rename_axis("GeneID")
-    return _normalize_annotation_frame(
-        pd.DataFrame(rows).set_index("GeneID"), "entrez_gene_esummary"
-    )
+        return make_table(["gene_id", *ANNOTATION_TABLE_COLUMNS])
+    return _normalize_annotation_records(rows, "entrez_gene_esummary")
 
 
 def load_rnaseq_annotation(
@@ -469,128 +407,76 @@ def load_rnaseq_annotation(
     gene_ids: Iterable[str | int] | None = None,
     refresh: bool = False,
     http_client: HttpClient | None = None,
-) -> pd.DataFrame:
-    """Load the NCBI gene annotation table used by GEO's RNA-seq count matrices.
-
-    Source cascade (first that works wins; results are merged into a local cache):
-        1. Local cache `<cache>/annotations/<Organism>.<assembly>.annot.json.gz`
-        2. GEO's own annotation file (full table, ~40k genes; browser-gated on some networks)
-        3. NCBI Datasets v2 gene API for the requested `gene_ids` (1000 IDs/request)
-        4. Entrez Gene `esummary` for the requested `gene_ids` (no GeneType/Ensembl)
-
-    Args:
-        assembly: 'GRCh38.p13' (human) or 'GRCm39' (mouse)
-        gene_ids: Optional GeneIDs to restrict/ensure (required when GEO's file is unavailable)
-        refresh: Ignore the local cache and re-download
-        http_client: Optional HTTP client
-
-    Returns:
-        DataFrame indexed by `GeneID` (str) with columns `Symbol`, `Description`, `GeneType`,
-        `EnsemblGeneID`, `Chromosome`, `Synonyms`, `source` (restricted to `gene_ids` if given).
-    """
+) -> Table:
+    """Retrieve gene annotation as native data; full and partial caches remain distinct."""
     client = http_client or get_default_client()
-    wanted = [str(g).strip() for g in gene_ids] if gene_ids is not None else None
-    if wanted is not None:
-        wanted = list(dict.fromkeys(g for g in wanted if g))
-    cache_name = RNASEQ_ANNOTATION_FILES.get(assembly, f"{assembly}.annot.tsv.gz")
-    cache_path = _annotation_cache_dir(client) / cache_name.removesuffix(".tsv.gz")
-    reporter = get_reporter()
-
-    with reporter.task(
-        "GENE", "load_rnaseq_annotation", f"Loading gene annotation ({assembly})", target=assembly
-    ) as task:
-        table = None if refresh else _read_cached_table(cache_path)
-        complete_in_cache = False
-        if table is not None:
+    wanted = (
+        list(dict.fromkeys(str(value).strip() for value in gene_ids if str(value).strip()))
+        if gene_ids is not None
+        else None
+    )
+    cache_name = RNASEQ_ANNOTATION_FILES.get(assembly, f"{assembly}.annot.tsv.gz").removesuffix(
+        ".tsv.gz"
+    )
+    if Path(cache_name).name != cache_name:
+        raise ValueError("assembly must be a name, not a filesystem path")
+    path = _annotation_cache_dir(client) / cache_name
+    cached = None if refresh else _read_cached_table(path)
+    value, complete = (
+        cached if cached else (make_table(["gene_id", *ANNOTATION_TABLE_COLUMNS]), False)
+    )
+    lookup = by_id(value, "gene_id")
+    sufficient = complete if wanted is None else all(identifier in lookup for identifier in wanted)
+    if not sufficient:
+        fetched = _fetch_geo_annotation_file(assembly, client)
+        if fetched is not None:
+            value, complete = fetched, True
+        else:
             if wanted is None:
-                complete_in_cache = bool(table.attrs.get("complete"))
-            else:
-                complete_in_cache = all(g in table.index for g in wanted)
-            if complete_in_cache:
-                task.step(f"Cache hit ({len(table):,} genes)")
-
-        if not complete_in_cache:
-            fetched = _fetch_geo_annotation_file(assembly, client)
-            if fetched is not None:
-                table = fetched
-                task.step(f"Downloaded GEO annotation file ({len(table):,} genes)")
-            else:
-                if wanted is None:
-                    raise DataError(
-                        f"GEO's {assembly} annotation file is unavailable from this network and no "
-                        "gene_ids were given to annotate via NCBI Datasets",
-                        hint="Pass gene_ids=[...] (or annotate a GeneID-indexed DataFrame) so the "
-                        "needed genes can be fetched from the NCBI Datasets API instead",
-                    )
-                missing = [g for g in wanted if table is None or g not in table.index]
-                task.step(f"Annotating {len(missing):,} GeneID(s) via NCBI Datasets API")
-                try:
-                    fetched = _fetch_datasets_gene_reports(missing, client)
-                except PyNCBIError as exc:
-                    reporter.warn(
-                        "GENE",
-                        f"NCBI Datasets unavailable ({type(exc).__name__}); using Entrez Gene esummary",
-                        operation="load_rnaseq_annotation",
-                        target=assembly,
-                    )
-                    fetched = _fetch_esummary_gene(missing, client)
-                table = (
-                    fetched
-                    if table is None
-                    else pd.concat([table, fetched[~fetched.index.isin(table.index)]])
+                raise DataError(
+                    f"GEO's {assembly} annotation is unavailable and no gene_ids were supplied",
+                    hint="Pass the gene IDs to retrieve their NCBI records",
                 )
-            _write_cached_table(table, cache_path)
-
-        assert table is not None
-        for col in ANNOTATION_TABLE_COLUMNS:
-            if col not in table.columns:
-                table[col] = ""
-        if wanted is not None:
-            table = table.reindex([g for g in wanted if g in table.index])
-        task.complete(f"Gene annotation ready: {len(table):,} genes ({assembly})")
-        return table
+            missing = [identifier for identifier in wanted if identifier not in lookup]
+            try:
+                fetched = _fetch_datasets_gene_reports(missing, client)
+            except PyNCBIError:
+                fetched = _fetch_esummary_gene(missing, client)
+            for record in iter_records(fetched):
+                lookup.setdefault(str(record["gene_id"]), record)
+            value = (
+                from_records(lookup.values())
+                if lookup
+                else make_table(["gene_id", *ANNOTATION_TABLE_COLUMNS])
+            )
+        _write_cached_table(value, path, complete=complete)
+    if wanted is not None:
+        lookup = by_id(value, "gene_id")
+        value = from_records(
+            (lookup[identifier] for identifier in wanted if identifier in lookup), value["columns"]
+        )
+    return value
 
 
 def annotate_gene_ids(
-    data: pd.DataFrame | Iterable[str | int],
+    data: Table | Iterable[str | int],
     *,
     assembly: str = "GRCh38.p13",
-    columns: Sequence[str] | None = None,
+    columns: Sequence[str] | None = DEFAULT_GENE_ANNOTATION_COLUMNS,
     http_client: HttpClient | None = None,
-) -> pd.DataFrame:
-    """Map numeric Entrez GeneIDs to gene annotation and prepend it to a count matrix.
-
-    Args:
-        data: A GeneID-indexed DataFrame (e.g., from `load_rnaseq_counts`) or an iterable of
-            GeneIDs
-        assembly: 'GRCh38.p13' (human) or 'GRCm39' (mouse)
-        columns: Annotation columns to attach (default `Symbol`, `GeneType`, `EnsemblGeneID`)
-        http_client: Optional HTTP client
-
-    Returns:
-        For a DataFrame: a copy with the annotation columns inserted first (measurement
-        columns unchanged; unknown IDs get NaN). For an iterable: an annotation DataFrame
-        indexed by GeneID in input order.
-    """
-    cols = tuple(columns) if columns else DEFAULT_GENE_ANNOTATION_COLUMNS
-    ids = [str(i) for i in (data.index if isinstance(data, pd.DataFrame) else data)]
-    table = load_rnaseq_annotation(assembly, gene_ids=ids, http_client=http_client)
-    for col in cols:
-        if col not in table.columns:
-            raise DataError(
-                f"Annotation column '{col}' not available", hint=f"Available: {list(table.columns)}"
-            )
-    annot = table[list(cols)].replace("", pd.NA)
-
-    if isinstance(data, pd.DataFrame):
-        aligned = annot.reindex(ids)
-        aligned.index = data.index
-        base = data.drop(columns=[c for c in cols if c in data.columns])
-        return pd.concat([aligned, base], axis=1)
-
-    out = annot.reindex(ids)
-    out.index.name = "GeneID"
-    return out
+) -> Table:
+    """Retrieve annotations for gene IDs, optionally attaching them to native measurements."""
+    fields = list(columns or DEFAULT_GENE_ANNOTATION_COLUMNS)
+    identifiers = (
+        [str(row[0]) for row in data["rows"]] if is_table(data) else [str(item) for item in data]
+    )
+    annotations = load_rnaseq_annotation(assembly, gene_ids=identifiers, http_client=http_client)
+    base = (
+        data
+        if is_table(data)
+        else make_table(["gene_id"], ([identifier] for identifier in identifiers))
+    )
+    return _attach_annotations(base, annotations, fields)
 
 
 _GENE_ID_RE = re.compile(r"^\d+$")

@@ -7,6 +7,7 @@ import gzip
 
 import pytest
 
+from native_support import cell, data_fields, identifiers
 from PyNCBI.core.exceptions import BotChallengeError, DataError
 from PyNCBI.core.types import GSEInfo
 from PyNCBI.io.http_client import NCBIClient
@@ -96,12 +97,12 @@ def test_parse_gpl_data_table_preserves_all_columns_and_id_index():
     parser = get_parser()
     df = parser.parse_gpl_data_table(GPL_DATA_TEXT)
 
-    assert df.index.name == "ID"
-    assert list(df.index) == ["1007_s_at", "1053_at", "117_at", "121_at"]
-    assert list(df.columns) == ["GB_ACC", "Gene Symbol", "ENTREZ_GENE_ID", "Chromosome"]
+    assert df["columns"][0] == "feature_id"
+    assert list(identifiers(df)) == ["1007_s_at", "1053_at", "117_at", "121_at"]
+    assert list(data_fields(df)) == ["GB_ACC", "Gene Symbol", "ENTREZ_GENE_ID", "Chromosome"]
     # Values are kept as raw strings (no float coercion of multi-valued annotation cells)
-    assert df.loc["1007_s_at", "ENTREZ_GENE_ID"] == "780 /// 100616237"
-    assert df.loc["1053_at", "Gene Symbol"] == "RFC2"
+    assert cell(df, "1007_s_at", "ENTREZ_GENE_ID") == "780 /// 100616237"
+    assert cell(df, "1053_at", "Gene Symbol") == "RFC2"
 
 
 def test_parse_gpl_data_table_from_streamed_lines_with_column_subset_and_limit():
@@ -109,9 +110,9 @@ def test_parse_gpl_data_table_from_streamed_lines_with_column_subset_and_limit()
     lines = iter(GPL_DATA_TEXT.splitlines())
     df = parser.parse_gpl_table_lines(lines, columns=["Gene Symbol", "ENTREZ_GENE_ID"], limit=2)
 
-    assert list(df.columns) == ["Gene Symbol", "ENTREZ_GENE_ID"]
-    assert len(df) == 2
-    assert df.index.name == "ID"
+    assert list(data_fields(df)) == ["Gene Symbol", "ENTREZ_GENE_ID"]
+    assert len(df["rows"]) == 2
+    assert df["columns"][0] == "feature_id"
 
 
 def test_parse_gpl_table_lines_raises_data_error_when_no_table():

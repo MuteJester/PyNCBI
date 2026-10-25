@@ -82,6 +82,7 @@
       "StudyBundle",
       "StudyRecord",
       "SymlinkError",
+      "Table",
       "TaskScope",
       "TaxonRecord",
       "TokenBucketLimiter",
@@ -125,7 +126,7 @@
       "fetch_sra_runs",
       "fetch_taxonomy",
       "fetch_variants",
-      "format_dataframe_preview",
+      "format_table_preview",
       "get_client",
       "get_config",
       "get_default_client",
@@ -136,6 +137,8 @@
       "harmonize_sample",
       "inspect_accession",
       "is_retryable",
+      "iter_records",
+      "iter_supplementary_records",
       "json_schema",
       "link_accession",
       "load_expression",
@@ -171,7 +174,7 @@
       "set_level",
       "silence",
       "submit_blast",
-      "summarize_characteristics_df",
+      "summarize_characteristics",
       "to_bibtex",
       "to_ris",
       "validate_accession",
@@ -484,7 +487,7 @@
           "database",
           "hit_count",
           "hits",
-          "hits_df",
+          "hits_table",
           "program",
           "query_def",
           "query_id",
@@ -834,9 +837,9 @@
           "candidates",
           "column_mapping",
           "gse_id",
-          "matrix_df",
+          "matrix",
           "notes",
-          "samples_df",
+          "sample_table",
           "saved_path",
           "shape",
           "source",
@@ -849,8 +852,8 @@
         "params": [
           "gse_id",
           "source",
-          "matrix_df=",
-          "samples_df=",
+          "matrix=",
+          "sample_table=",
           "source_file=",
           "source_url=",
           "column_mapping=",
@@ -993,8 +996,8 @@
       "GSE": {
         "kind": "class",
         "members": [
-          "characteristics_df",
           "characteristics_summary",
+          "characteristics_table",
           "clear_cache",
           "download_supplementary",
           "failed_samples",
@@ -1012,14 +1015,15 @@
           "platform_id",
           "remove_gsm_cache",
           "sample_count",
-          "samples_df",
+          "sample_table",
           "save",
           "store_cache",
           "supplementary_files",
           "title",
-          "to_dataframe",
           "to_dict",
           "to_markdown",
+          "to_records",
+          "to_table",
           "values"
         ],
         "params": [
@@ -1194,16 +1198,16 @@
           "conflicts",
           "coverage",
           "field_map",
-          "normalized_df",
-          "provenance_df",
-          "raw_df",
+          "normalized_table",
+          "provenance_table",
+          "raw_table",
           "summary",
           "unmapped_keys"
         ],
         "params": [
-          "normalized_df",
-          "raw_df",
-          "provenance_df",
+          "normalized_table",
+          "raw_table",
+          "provenance_table",
           "field_map=",
           "unmapped_keys=",
           "conflicts=",
@@ -1239,8 +1243,6 @@
           "ftp_rate_limit_per_sec",
           "geo_rate_limit_per_sec",
           "max_retries",
-          "pool_connections",
-          "pool_maxsize",
           "rate_limit_per_sec",
           "retry_backoff",
           "retry_statuses",
@@ -1255,8 +1257,6 @@
           "geo_rate_limit_per_sec=",
           "ftp_rate_limit_per_sec=",
           "eutils_post_threshold_chars=",
-          "pool_connections=",
-          "pool_maxsize=",
           "extra_headers="
         ]
       },
@@ -1405,8 +1405,6 @@
           "ftp_rate_limit_per_sec",
           "geo_rate_limit_per_sec",
           "max_retries",
-          "pool_connections",
-          "pool_maxsize",
           "rate_limit_per_sec",
           "retry_backoff",
           "retry_statuses",
@@ -1421,8 +1419,6 @@
           "geo_rate_limit_per_sec=",
           "ftp_rate_limit_per_sec=",
           "eutils_post_threshold_chars=",
-          "pool_connections=",
-          "pool_maxsize=",
           "extra_headers="
         ]
       },
@@ -1878,18 +1874,18 @@
           "from_dict",
           "gse_id",
           "harmonization",
-          "harmonized_df",
+          "harmonized_table",
           "links",
           "organisms",
           "overall_design",
           "platforms",
-          "provenance_df",
+          "provenance_table",
           "pubmed_ids",
           "quality",
           "retrieved_at",
           "sample_count",
+          "sample_table",
           "samples",
-          "samples_df",
           "save",
           "source_versions",
           "subseries_ids",
@@ -1929,6 +1925,13 @@
         "params": [
           "path",
           "member"
+        ]
+      },
+      "Table": {
+        "kind": "class",
+        "members": [
+          "columns",
+          "rows"
         ]
       },
       "TaskScope": {
@@ -2019,7 +2022,7 @@
       "annotate_probes": {
         "kind": "function",
         "params": [
-          "df",
+          "data",
           "gpl_id",
           "columns=",
           "http_client="
@@ -2358,10 +2361,10 @@
           "http_client="
         ]
       },
-      "format_dataframe_preview": {
+      "format_table_preview": {
         "kind": "function",
         "params": [
-          "df",
+          "value",
           "mode=",
           "max_rows=",
           "max_cols="
@@ -2425,6 +2428,20 @@
         "kind": "function",
         "params": [
           "exc"
+        ]
+      },
+      "iter_records": {
+        "kind": "function",
+        "params": [
+          "value"
+        ]
+      },
+      "iter_supplementary_records": {
+        "kind": "function",
+        "params": [
+          "url_or_path",
+          "max_download_mb=",
+          "http_client="
         ]
       },
       "json_schema": {
@@ -2515,7 +2532,7 @@
         "kind": "function",
         "params": [
           "columns",
-          "samples_df",
+          "sample_table",
           "identifying_fields="
         ]
       },
@@ -2745,10 +2762,10 @@
           "http_client="
         ]
       },
-      "summarize_characteristics_df": {
+      "summarize_characteristics": {
         "kind": "function",
         "params": [
-          "df"
+          "value"
         ]
       },
       "to_bibtex": {
@@ -2830,6 +2847,7 @@
       "fetch_variants",
       "gse_of_gsm",
       "inspect_accession",
+      "iter_supplementary_records",
       "link_accession",
       "load_expression",
       "load_gds",
@@ -2937,7 +2955,7 @@
           "database",
           "hit_count",
           "hits",
-          "hits_df",
+          "hits_table",
           "program",
           "query_def",
           "query_id",
@@ -2996,9 +3014,9 @@
           "candidates",
           "column_mapping",
           "gse_id",
-          "matrix_df",
+          "matrix",
           "notes",
-          "samples_df",
+          "sample_table",
           "saved_path",
           "shape",
           "source",
@@ -3011,8 +3029,8 @@
         "params": [
           "gse_id",
           "source",
-          "matrix_df=",
-          "samples_df=",
+          "matrix=",
+          "sample_table=",
           "source_file=",
           "source_url=",
           "column_mapping=",
@@ -3111,7 +3129,7 @@
       "annotate_probes": {
         "kind": "function",
         "params": [
-          "df",
+          "data",
           "gpl_id",
           "columns=",
           "http_client="
@@ -3413,6 +3431,14 @@
           "parser="
         ]
       },
+      "iter_supplementary_records": {
+        "kind": "function",
+        "params": [
+          "url_or_path",
+          "max_download_mb=",
+          "http_client="
+        ]
+      },
       "link_accession": {
         "kind": "function",
         "params": [
@@ -3481,7 +3507,7 @@
         "kind": "function",
         "params": [
           "columns",
-          "samples_df",
+          "sample_table",
           "identifying_fields="
         ]
       },
@@ -3699,16 +3725,16 @@
           "conflicts",
           "coverage",
           "field_map",
-          "normalized_df",
-          "provenance_df",
-          "raw_df",
+          "normalized_table",
+          "provenance_table",
+          "raw_table",
           "summary",
           "unmapped_keys"
         ],
         "params": [
-          "normalized_df",
-          "raw_df",
-          "provenance_df",
+          "normalized_table",
+          "raw_table",
+          "provenance_table",
           "field_map=",
           "unmapped_keys=",
           "conflicts=",
@@ -3858,18 +3884,18 @@
           "from_dict",
           "gse_id",
           "harmonization",
-          "harmonized_df",
+          "harmonized_table",
           "links",
           "organisms",
           "overall_design",
           "platforms",
-          "provenance_df",
+          "provenance_table",
           "pubmed_ids",
           "quality",
           "retrieved_at",
           "sample_count",
+          "sample_table",
           "samples",
-          "samples_df",
           "save",
           "source_versions",
           "subseries_ids",

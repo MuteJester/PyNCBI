@@ -11,9 +11,9 @@ import io
 import tarfile
 import zipfile
 
-import pandas as pd
 import pytest
 
+from native_support import fixture_table, table_empty
 from PyNCBI.core.exceptions import PyNCBIError
 from PyNCBI.domains.geo.samples import _apply_sample_filter
 from PyNCBI.io.compression import extract_tarfile
@@ -91,7 +91,7 @@ def test_a_zip_member_that_escapes_is_refused(tmp_path):
 
 # --- filter expressions -----------------------------------------------------------------
 
-SAMPLES = pd.DataFrame(
+SAMPLES = fixture_table(
     {"title": ["S1", "S2"], "age": ["62", "34"], "severity": ["Severe", "Mild"]},
     index=["GSM1", "GSM2"],
 )
@@ -117,7 +117,7 @@ def test_a_filter_expression_cannot_reach_the_interpreter(expression):
         assert not isinstance(exc, SystemExit)
     else:
         # A refusal may also look like "nothing matched"; what matters is no side effect.
-        assert isinstance(result, pd.DataFrame)
+        assert isinstance(result, dict)
     assert not marker.exists(), "the filter expression reached the interpreter"
 
 
@@ -128,4 +128,4 @@ def test_an_unparseable_filter_is_an_error_not_a_silent_empty_table():
     except Exception as exc:  # noqa: BLE001
         assert "severity" in str(exc) or "filter" in str(exc).lower()
     else:
-        assert not result.empty, "a malformed filter silently matched nothing"
+        assert not table_empty(result), "a malformed filter silently matched nothing"

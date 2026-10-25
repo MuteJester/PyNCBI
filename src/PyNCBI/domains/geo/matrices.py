@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-import pandas as pd
+from PyNCBI.core.exceptions import DataError
+from PyNCBI.core.tables import Table, iter_records, table
 
 _GSM_RE = re.compile(r"GSM\d+", re.I)
 
@@ -31,7 +32,7 @@ def _normalize_label(text: Any) -> str:
 
 def map_columns_to_gsms(
     columns: list[str],
-    samples_df: pd.DataFrame,
+    sample_table: Table,
     *,
     identifying_fields: tuple[str, ...] = (
         "title",
@@ -49,21 +50,24 @@ def map_columns_to_gsms(
     Returns:
         ``(mapping, notes)`` where `mapping` maps original column -> GSM ID.
     """
-    if samples_df is None or samples_df.empty:
+    if not sample_table or not sample_table["rows"]:
         return {}, ["Sample sheet unavailable for this series; matrix columns kept as published"]
 
-    gsm_index = {str(g).upper(): str(g) for g in samples_df.index}
+    gsm_index = {
+        str(row["gsm_id"]).upper(): str(row["gsm_id"]) for row in iter_records(sample_table)
+    }
     mapping: dict[str, str] = {}
     by_strategy: dict[str, list[str]] = {}
     unmapped: list[str] = []
 
     lookups: list[tuple[str, dict[str, str]]] = []
     for col_name in identifying_fields:
-        if col_name not in samples_df.columns:
+        if col_name not in sample_table["columns"]:
             continue
         counts: dict[str, list[str]] = {}
-        for gsm, value in samples_df[col_name].items():
-            if value is None or (isinstance(value, float) and pd.isna(value)):
+        for record in iter_records(sample_table):
+            gsm, value = record["gsm_id"], record.get(col_name)
+            if value is None:
                 continue
             key = _normalize_label(value)
             if key:
@@ -84,9 +88,9 @@ def map_columns_to_gsms(
             continue
         key = _normalize_label(label)
         hit = False
-        for col_name, table in lookups:
-            if key and key in table:
-                mapping[label] = table[key]
+        for col_name, lookup in lookups:
+            if key and key in lookup:
+                mapping[label] = lookup[key]
                 by_strategy.setdefault(col_name, []).append(label)
                 hit = True
                 break
@@ -115,37 +119,58 @@ def map_columns_to_gsms(
 # ---------------------------------------------------------------------------
 
 
-def _value_series(df: pd.DataFrame, gsm_id: str) -> pd.Series | None:
-    """Pick the single measurement column of a per-sample table and name it after the GSM."""
-    # Some on-page tables retain the feature ID as both an index and a column.
-    # Numeric-looking identifiers must never be selected as measurements.
-    df = df.drop(
-        columns=[
-            c for c in df.columns if _normalize_label(c) in {"probe", "idref", "geneid", "feature"}
-        ]
-    )
-    if df.empty or df.shape[1] == 0:
+def sample_values(value: Table, gsm_id: str) -> Table | None:
+    """Pick a sample measurement field without modifying or coercing any source value."""
+    columns = [
+        name
+        for name in value["columns"]
+        if _normalize_label(name) not in {"probe", "idref", "geneid", "feature", "featureid"}
+    ]
+    if not value["rows"] or not columns:
         return None
-    chosen: str | None = None
-    if gsm_id in df.columns:
-        chosen = gsm_id
-    elif df.shape[1] == 1:
-        chosen = str(df.columns[0])
-    else:
-        for col in df.columns:
-            if any(
-                hint == _normalize_label(col) or hint in _normalize_label(col)
-                for hint in VALUE_COLUMN_HINTS
-            ):
-                chosen = str(col)
-                break
-        if chosen is None:
-            for col in df.columns:
-                if pd.to_numeric(df[col], errors="coerce").notna().any():
-                    chosen = str(col)
-                    break
+    chosen = gsm_id if gsm_id in columns else columns[0] if len(columns) == 1 else None
+    if chosen is None:
+        chosen = next(
+            (
+                name
+                for name in columns
+                if any(hint in _normalize_label(name) for hint in VALUE_COLUMN_HINTS)
+            ),
+            None,
+        )
+    if chosen is None:
+        chosen = next(
+            (
+                name
+                for name in columns
+                if any(
+                    isinstance(row[value["columns"].index(name)], (int, float))
+                    for row in value["rows"]
+                )
+            ),
+            None,
+        )
     if chosen is None:
         return None
-    series = df[chosen].copy()
-    series.name = gsm_id
-    return series
+    position = value["columns"].index(chosen)
+    return table(["feature_id", gsm_id], ([row[0], row[position]] for row in value["rows"]))
+
+
+def join_sample_values(values: list[Table]) -> Table:
+    """Align per-sample measurements by their published feature IDs, without imputation."""
+    names = [value["columns"][1] for value in values]
+    if len(set(names)) != len(names):
+        raise DataError("More than one measurement table was selected for the same sample")
+    rows: dict[str, list[Any]] = {}
+    for column, value in enumerate(values, start=1):
+        seen = set()
+        for identifier, measurement in value["rows"]:
+            if identifier in seen:
+                raise DataError(
+                    f"Duplicate feature identifier {identifier!r} in sample {value['columns'][1]}"
+                )
+            seen.add(identifier)
+            if identifier not in rows:
+                rows[identifier] = [identifier, *([None] * len(values))]
+            rows[identifier][column] = measurement
+    return {"columns": ["feature_id", *names], "rows": list(rows.values())}

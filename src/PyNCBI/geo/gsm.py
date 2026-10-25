@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from numbers import Integral
 from typing import TYPE_CHECKING, Any
-
-import pandas as pd
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.formatter import render_output, save_data
+from PyNCBI.core.tables import Table, is_table
 from PyNCBI.core.types import DataStatus, validate_accession
 from PyNCBI.domains.geo import download_geo_files, inspect_accession
-from PyNCBI.domains.geo.records import SampleState, fetch_sample_record, sample_from_parts
+from PyNCBI.domains.geo.records import (
+    SampleState,
+    fetch_sample_record,
+    sample_data,
+    sample_from_parts,
+)
 from PyNCBI.domains.geo.tables import load_sample_record
 from PyNCBI.geo._cache import EntityCache
 from PyNCBI.geo._formatting import sample_summary
@@ -25,11 +28,6 @@ if TYPE_CHECKING:
 
     from PyNCBI.core.models import InspectionReport
     from PyNCBI.core.protocols import Cache, HttpClient
-
-
-def _measurement(value: Any) -> int | float:
-    """Keep integer counts exact, including values beyond binary64's exact range."""
-    return int(value) if isinstance(value, Integral) else float(value)
 
 
 class GSM:
@@ -100,36 +98,36 @@ class GSM:
         self._state.gse_id = value
 
     @property
-    def info(self) -> pd.Series:
-        """All sample metadata fields as a pandas Series."""
-        return self._state.info if self._state.info is not None else pd.Series(dtype=object)
+    def info(self) -> dict[str, Any]:
+        """All sample metadata fields as a dictionary."""
+        return self._state.info if self._state.info is not None else {}
 
     @info.setter
-    def info(self, value: pd.Series) -> None:
+    def info(self, value: dict[str, Any]) -> None:
         self._state.info = value
 
     @property
-    def data(self) -> pd.DataFrame | pd.Series | None:
-        """On-page or tabular sample data as a DataFrame (or None if shell_only=True)."""
-        return self._state.data
+    def data(self) -> Table | None:
+        """On-page or tabular sample data as a native table (or None if shell_only=True)."""
+        return sample_data(self._state)
 
     @data.setter
-    def data(self, value: pd.DataFrame | pd.Series | str | None) -> None:
-        self._state.data = None if value is None or isinstance(value, str) else value
+    def data(self, value: Table | None) -> None:
+        if value is not None and not is_table(value):
+            raise TypeError("data must be a native columns/rows dictionary or None")
+        self._state.data = value
+        self._state._matrix = None
+        self._state.matrix_column = ""
         self._state.source = "provided" if self._state.data is not None else "metadata"
         self._state.source_url = ""
 
     @property
-    def characteristics(self) -> pd.Series:
-        """Parsed sample characteristics (``key: value``) as a pandas Series."""
-        return (
-            self._state.characteristics
-            if self._state.characteristics is not None
-            else pd.Series(dtype=object)
-        )
+    def characteristics(self) -> dict[str, Any]:
+        """Parsed sample characteristics (``key: value``) as a dictionary."""
+        return self._state.characteristics if self._state.characteristics is not None else {}
 
     @characteristics.setter
-    def characteristics(self, value: pd.Series) -> None:
+    def characteristics(self, value: dict[str, Any]) -> None:
         self._state.characteristics = value
 
     @property
@@ -140,7 +138,7 @@ class GSM:
     @property
     def has_data(self) -> bool:
         """True if tabular data was loaded into `.data`."""
-        return self._state.data is not None
+        return self._state.data is not None or self._state._matrix is not None
 
     @property
     def title(self) -> str:
@@ -198,13 +196,14 @@ class GSM:
         )
 
     def save(self, output_path: str | Path, section: str = "data") -> Path:
-        """Save GSM data or metadata to a file (.csv, .tsv, .parquet, .json)."""
+        """Save GSM data or metadata to a file (.csv, .tsv, .json)."""
         if section == "info":
             return save_data(self.info, output_path)
         if section == "characteristics":
             return save_data(self.characteristics, output_path)
-        if self._state.data is not None:
-            return save_data(self._state.data, output_path)
+        data = self.data
+        if data is not None:
+            return save_data(data, output_path)
         return save_data(self.to_dict(), output_path)
 
     # Cache operations describe this request, not another source's measurements.
@@ -246,10 +245,10 @@ class GSM:
     def _from_parsed_parts(
         cls,
         gsm_id: str,
-        info: pd.Series,
-        characteristics: pd.Series,
+        info: dict[str, Any],
+        characteristics: dict[str, Any],
         *,
-        data: pd.DataFrame | pd.Series | None = None,
+        data: Table | None = None,
         http_client: HttpClient | None = None,
         cache: Cache[dict[str, Any]] | None = None,
     ) -> GSM:
@@ -275,28 +274,24 @@ class GSM:
     def __hash__(self) -> int:
         return hash(self._state.gsm_id)
 
-    def __getitem__(self, probe_id: str) -> int | float:
-        """Get data value for a specific feature/probe ID."""
-        if self._state.data is None:
-            raise KeyError(f"No data available for {self._state.gsm_id}")
-        if isinstance(self._state.data, pd.Series):
-            return _measurement(self._state.data.loc[probe_id])  # type: ignore[arg-type]
-        if probe_id in self._state.data.index and self._state.gsm_id in self._state.data.columns:
-            return _measurement(self._state.data.loc[probe_id, self._state.gsm_id])  # type: ignore[arg-type]
-        if "probe" in self._state.data.columns and self._state.gsm_id in self._state.data.columns:
-            matched = self._state.data.loc[
-                self._state.data["probe"] == probe_id, self._state.gsm_id
-            ]
-            if not matched.empty:
-                return _measurement(matched.iloc[0])
-        raise KeyError(f"Probe '{probe_id}' not found in {self._state.gsm_id}")
+    def __getitem__(self, probe_id: str) -> int | float | None:
+        """Get an exact native measurement by its explicit feature identifier."""
+        data = self._state._matrix or self._state.data
+        if data is not None and self.gsm_id in data["columns"]:
+            index = data["columns"].index(self.gsm_id)
+            for row in data["rows"]:
+                if row[0] == probe_id:
+                    value = row[index]
+                    if value is None or isinstance(value, (int, float)):
+                        return value
+                    raise TypeError(f"Feature {probe_id!r} has non-numeric data")
+        raise KeyError(f"Feature {probe_id!r} not found in {self.gsm_id}")
 
     def __contains__(self, probe_id: str) -> bool:
-        """Check if probe/feature ID exists in data."""
-        if self._state.data is None:
-            return False
-        if probe_id in self._state.data.index:
-            return True
-        if isinstance(self._state.data, pd.DataFrame) and "probe" in self._state.data.columns:
-            return bool((self._state.data["probe"] == probe_id).any())
-        return False
+        data = self._state._matrix or self._state.data
+        return (
+            data is not None
+            and bool(data["columns"])
+            and data["columns"][0] == "feature_id"
+            and any(row[0] == probe_id for row in data["rows"])
+        )

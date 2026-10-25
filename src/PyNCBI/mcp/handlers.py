@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from PyNCBI.core.formatter import format_dataframe_preview, render_output, save_data
+from PyNCBI.core.formatter import format_table_preview, render_output, save_data
+from PyNCBI.core.tables import column, iter_records, preview_records
 from PyNCBI.domains.blast_search import BlastJob, blast, check_blast, fetch_blast
 from PyNCBI.domains.bundle import build_study_bundle
 from PyNCBI.domains.entrez import (
@@ -35,7 +36,8 @@ from PyNCBI.domains.screening import screen_studies
 from PyNCBI.domains.sequencing import download_fastq, fetch_fastq_urls
 from PyNCBI.domains.variants import fetch_variants
 from PyNCBI.io.http_client import format_size_human, get_client
-from PyNCBI.metadata import build_study_record, harmonize_characteristics
+from PyNCBI.metadata import build_study_record
+from PyNCBI.metadata.harmonize import sample_metadata_view
 from PyNCBI.metadata.serving import bounded_payload, paginate
 
 
@@ -162,21 +164,18 @@ def execute_mcp_tool(name: str, arguments: dict[str, Any]) -> str:
         max_rows = int(arguments.get("max_preview_rows", 15))
 
         combined_df, char_df, summaries = extract_gse_samples(gse_id, where=where)
-        target_df = char_df if chars_only else combined_df
-        harmonization = None
-        if bool(arguments.get("harmonize", False)):
-            table = harmonize_characteristics(char_df)
-            harmonization = table.summary()
-            rest = combined_df[[c for c in combined_df.columns if c not in char_df.columns]]
-            target_df = (
-                table.normalized_df if chars_only else table.normalized_df.join(rest, how="left")
-            )
+        target_df, harmonization = sample_metadata_view(
+            combined_df,
+            char_df,
+            chars_only=chars_only,
+            harmonize=bool(arguments.get("harmonize", False)),
+        )
         saved_files: list[str] = []
-        if save_to and not target_df.empty:
+        if save_to and target_df["rows"]:
             out_path = save_data(target_df, save_to)
             saved_files.append(str(out_path))
         if bool(arguments.get("as_json", False)):
-            rows_all = target_df.reset_index().to_dict(orient="records")
+            rows_all = list(iter_records(target_df))
             page, next_token, total = paginate(
                 rows_all,
                 page_size=int(arguments.get("page_size", 50)),
@@ -185,7 +184,7 @@ def execute_mcp_tool(name: str, arguments: dict[str, Any]) -> str:
             payload = {
                 "gse_id": gse_id,
                 "sample_count": total,
-                "columns": [str(c) for c in target_df.reset_index().columns],
+                "columns": [str(c) for c in target_df["columns"]],
                 "characteristics_summary": [cs.to_dict() for cs in summaries],
                 "harmonization": harmonization,
                 "rows": page,
@@ -201,26 +200,26 @@ def execute_mcp_tool(name: str, arguments: dict[str, Any]) -> str:
             )
 
         summary_lines = [
-            f"### {gse_id} Cohort Characteristics Breakdown ({len(target_df)} samples)",
+            f"### {gse_id} Cohort Characteristics Breakdown ({len(target_df['rows'])} samples)",
             *[f"- **{cs.name}** ({cs.dtype}): {cs.format_brief()}" for cs in summaries],
             "",
-            format_dataframe_preview(target_df, mode="markdown", max_rows=max_rows),
+            format_table_preview(target_df, mode="markdown", max_rows=max_rows),
         ]
         if saved_files:
             summary_lines.append(f"\n**Saved full table to:** `{saved_files[0]}`")
         envelope = render_output(
             {
                 "gse_id": gse_id,
-                "sample_count": len(target_df),
-                "columns": [str(c) for c in target_df.columns],
+                "sample_count": len(target_df["rows"]),
+                "columns": [str(c) for c in target_df["columns"]],
                 "characteristics_summary": [cs.to_dict() for cs in summaries],
                 "harmonization": harmonization,
-                "preview": target_df.head(max_rows).reset_index().to_dict(orient="records"),
+                "preview": preview_records(target_df, max_rows),
             },
             mode="json",
             command="ncbi_samples",
             target=gse_id,
-            summary=f"{len(target_df)} samples in {gse_id}",
+            summary=f"{len(target_df['rows'])} samples in {gse_id}",
             saved_files=saved_files,
         )
         return "\n".join(summary_lines) + "\n\n---\n" + envelope
@@ -351,19 +350,19 @@ def execute_mcp_tool(name: str, arguments: dict[str, Any]) -> str:
         limit = int(arguments.get("limit", 100))
         save_to = arguments.get("save_to")
         df = fetch_sra_runs(q, limit=limit, save_to=save_to)
-        saved_files = [str(save_to)] if save_to and not df.empty else []
+        saved_files = [str(save_to)] if save_to and df["rows"] else []
         payload = {
             "query": q,
-            "run_count": len(df),
-            "columns": [str(c) for c in df.columns],
-            "runs": df.head(25).to_dict(orient="records"),
+            "run_count": len(df["rows"]),
+            "columns": [str(c) for c in df["columns"]],
+            "runs": preview_records(df, 25),
         }
         return render_output(
             payload,
             mode="json",
             command="ncbi_sra",
             target=q,
-            summary=f"Found {len(df)} SRA sequencing run(s) for '{q}'",
+            summary=f"Found {len(df['rows'])} SRA sequencing run(s) for '{q}'",
             saved_files=saved_files,
         )
 
@@ -514,12 +513,8 @@ def execute_mcp_tool(name: str, arguments: dict[str, Any]) -> str:
         )
         max_rows = int(arguments.get("max_rows", 8))
         payload = expr_res.to_dict()
-        payload["preview"] = (
-            expr_res.matrix_df.iloc[:max_rows, :12].reset_index().to_dict(orient="records")
-        )
-        payload["samples_preview"] = (
-            expr_res.samples_df.iloc[:max_rows, :8].reset_index().to_dict(orient="records")
-        )
+        payload["preview"] = preview_records(expr_res.matrix, max_rows, 12)
+        payload["samples_preview"] = preview_records(expr_res.sample_table, max_rows, 8)
         saved = []
         if expr_res.saved_path:
             saved = [
@@ -563,23 +558,23 @@ def execute_mcp_tool(name: str, arguments: dict[str, Any]) -> str:
                 saved_files=str_paths,
             )
         df = fetch_fastq_urls(acc, save_to=arguments.get("save_to"))
-        total = int(df["size_bytes"].fillna(0).sum()) if not df.empty else 0
+        total = int(sum(value or 0 for value in column(df, "size_bytes"))) if df["rows"] else 0
         payload = {
             "accession": acc,
-            "file_count": len(df),
-            "run_count": int(df["run_accession"].nunique()) if not df.empty else 0,
+            "file_count": len(df["rows"]),
+            "run_count": int(len(set(column(df, "run_accession")))) if df["rows"] else 0,
             "total_size_bytes": total,
             "total_size_human": format_size_human(total),
-            "files": df.head(50).to_dict(orient="records"),
+            "files": preview_records(df, 50),
         }
         return render_output(
             payload,
             mode="json",
             command="ncbi_fastq",
             target=acc,
-            summary=f"{len(df)} FASTQ file(s) ({format_size_human(total)}) for {acc}",
+            summary=f"{len(df['rows'])} FASTQ file(s) ({format_size_human(total)}) for {acc}",
             saved_files=[_argument_text(arguments, "save_to", "")]
-            if arguments.get("save_to") and not df.empty
+            if arguments.get("save_to") and df["rows"]
             else [],
         )
 

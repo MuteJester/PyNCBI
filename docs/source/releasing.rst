@@ -9,8 +9,8 @@ Local validation
 
 Follow the checks in ``CONTRIBUTING.md``. Build into a clean output directory, then run
 ``python scripts/check_distribution.py DIST --smoke``. This verifies the wheel/source
-contents and installs the wheel into a temporary environment containing runtime
-dependencies only. The CLI, schemas, offline status and MCP manifest are exercised there.
+contents and installs the wheel with ``--no-deps --no-index`` into a fresh environment.
+It rejects any declared third-party runtime requirement. The CLI, schemas, offline status and MCP manifest are exercised there.
 CI additionally unpacks the source archive and runs its offline tests.
 
 The matrix includes Python 3.10–3.15 on Linux and Python 3.12 on Windows/macOS. Python

@@ -1,23 +1,14 @@
-"""Measurements must survive the round trip exactly.
-
-PyNCBI's first promise is that it never alters scientific data. The values below are the
-ones that silently change when a parser is careless: long decimals that lose precision,
-identifiers whose leading zeros disappear, counts beyond float precision, numbers in
-scientific notation, and the several spellings of "missing".
-"""
+"""Native values survive retrieval, filtering, caching and export without rounding."""
 
 from __future__ import annotations
 
 import gzip
 
-import pandas as pd
 import pytest
 
 from PyNCBI.core.config import Config
-from PyNCBI.core.types import table_read_options
+from PyNCBI.core.tables import by_id, from_records
 
-# A beta value with 17 significant digits, an ID with leading zeros, a count past 2**53,
-# scientific notation, a negative, and three spellings of missing.
 MATRIX_TEXT = """!Series_title\t"Precision"
 !Sample_geo_accession\t"GSM1"\t"GSM2"
 !series_matrix_table_begin
@@ -39,7 +30,7 @@ def matrix_server(local_http, monkeypatch):
     local_http.add("/query?acc=GSE500", "^SERIES = GSE500\n!Series_title = Precision\n")
     local_http.add(
         "/geo/series/GSEnnn/GSE500/matrix/GSE500_series_matrix.txt.gz",
-        gzip.compress(MATRIX_TEXT.encode("utf-8")),
+        gzip.compress(MATRIX_TEXT.encode()),
         "application/x-gzip",
     )
     return local_http
@@ -48,69 +39,66 @@ def matrix_server(local_http, monkeypatch):
 def test_series_matrix_values_are_not_rounded_or_retyped(matrix_server):
     from PyNCBI.domains.geo import load_series_matrix
 
-    matrix = load_series_matrix("GSE500").matrix_df
-
-    # Full double precision, not a rounded display value.
-    assert matrix.loc["cg00000029", "GSM1"] == pytest.approx(0.12345678901234567, rel=0, abs=1e-17)
-    # Scientific notation survives in both spellings.
-    assert matrix.loc["probe_sci", "GSM1"] == pytest.approx(1.23e-45)
-    assert matrix.loc["probe_sci", "GSM2"] == pytest.approx(6.02e23)
-    assert matrix.loc["0001234", "GSM2"] == pytest.approx(-1.5)
+    rows = by_id(load_series_matrix("GSE500").matrix, "feature_id")
+    assert rows["cg00000029"]["GSM1"] == float("0.12345678901234567")
+    assert rows["0001234"]["GSM1"] == 9007199254740993
+    assert isinstance(rows["0001234"]["GSM1"], int)
+    assert rows["probe_sci"]["GSM1"] == 1.23e-45
+    assert rows["probe_sci"]["GSM2"] == 6.02e23
+    assert rows["0001234"]["GSM2"] == -1.5
 
 
 def test_identifiers_keep_their_leading_zeros(matrix_server):
-    """`0001234` is an identifier, not the number 1234."""
     from PyNCBI.domains.geo import load_series_matrix
 
-    matrix = load_series_matrix("GSE500").matrix_df
-    assert "0001234" in matrix.index
-    assert all(isinstance(value, str) for value in matrix.index)
+    rows = by_id(load_series_matrix("GSE500").matrix, "feature_id")
+    assert "0001234" in rows
+    assert all(isinstance(key, str) for key in rows)
 
 
 def test_missing_values_stay_missing_and_are_never_filled(matrix_server):
     from PyNCBI.domains.geo import load_series_matrix
 
-    matrix = load_series_matrix("GSE500").matrix_df
-    assert pd.isna(matrix.loc["probe_na", "GSM1"])
-    assert pd.isna(matrix.loc["probe_na", "GSM2"])
-    assert pd.isna(matrix.loc["probe_nan", "GSM1"])
-    assert (matrix.fillna(-999) == -999).to_numpy().sum() >= 4, "missing cells must not be filled"
+    rows = by_id(load_series_matrix("GSE500").matrix, "feature_id")
+    assert rows["probe_na"] == {"feature_id": "probe_na", "GSM1": None, "GSM2": None}
+    assert rows["probe_nan"] == {"feature_id": "probe_nan", "GSM1": None, "GSM2": None}
 
 
 def test_saving_and_reloading_a_table_does_not_change_a_single_value(matrix_server, tmp_path):
-    """`-o table.csv` must be a faithful copy, not a reformatted one."""
     from PyNCBI.core.formatter import save_data
-    from PyNCBI.domains.geo import load_series_matrix
+    from PyNCBI.domains.geo import load_series_matrix, read_supplementary_table
 
-    matrix = load_series_matrix("GSE500").matrix_df
+    value = load_series_matrix("GSE500").matrix
     destination = tmp_path / "matrix.csv"
-    save_data(matrix, destination)
-
-    # The file itself must carry every digit, so nothing is lost on the way out.
+    save_data(value, destination)
     assert "0.12345678901234566" in destination.read_text(encoding="utf-8")
-
-    reloaded = pd.read_csv(destination, index_col=0, **table_read_options())
-    reloaded.index = reloaded.index.astype(str)
-    assert list(reloaded.index) == list(matrix.index)
-    pd.testing.assert_frame_equal(
-        reloaded.astype(float), matrix.astype(float), check_exact=True, check_names=False
-    )
+    assert "9007199254740993" in destination.read_text(encoding="utf-8")
+    assert read_supplementary_table(destination) == value
 
 
 def test_cohort_filtering_selects_rows_without_touching_values():
-    """`--where` is a filter; it must never rewrite the cells it keeps."""
     from PyNCBI.domains.geo.samples import _apply_sample_filter
 
-    frame = pd.DataFrame(
-        {
-            "title": ["S1", "S2", "S3"],
-            "age": ["62", "34", "71"],
-            "beta": [0.12345678901234567, 0.5, 0.9],
-            "severity": ["Severe", "Moderate", "Severe"],
-        },
-        index=["GSM1", "GSM2", "GSM3"],
+    value = from_records(
+        [
+            {"gsm_id": "GSM1", "age": "62", "beta": 0.12345678901234567, "severity": "Severe"},
+            {"gsm_id": "GSM2", "age": "34", "beta": 0.5, "severity": "Moderate"},
+            {"gsm_id": "GSM3", "age": "71", "beta": 0.9, "severity": "Severe"},
+        ]
     )
-    filtered = _apply_sample_filter(frame, "severity == 'Severe'")
+    filtered = _apply_sample_filter(value, "severity == 'Severe'")
+    assert filtered == {"columns": value["columns"], "rows": [value["rows"][0], value["rows"][2]]}
 
-    assert list(filtered.index) == ["GSM1", "GSM3"]
-    pd.testing.assert_frame_equal(filtered, frame.loc[["GSM1", "GSM3"]], check_exact=True)
+
+def test_delimited_reader_preserves_symbol_prefixes_and_quoted_multiline_text():
+    from PyNCBI.parsing.tabular import parse_delimited_table
+
+    value = parse_delimited_table(
+        'id,GSM1,note\n!probe,3,"line one\n\nline three"\n^probe,4,plain\n',
+        "data.csv",
+        text_columns=["note"],
+    )
+    assert value == {
+        "columns": ["feature_id", "GSM1", "note"],
+        "rows": [["!probe", 3, "line one\n\nline three"], ["^probe", 4, "plain"]],
+    }

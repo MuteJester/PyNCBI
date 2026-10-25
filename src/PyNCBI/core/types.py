@@ -5,20 +5,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Literal, TypedDict
 
 from PyNCBI.core.exceptions import InvalidAccessionError
 from PyNCBI.core.files import file_name, matches_file
 from PyNCBI.core.protocols import FileSelector, ProgressCallback
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
-
-
-class _TableReadOptions(TypedDict, total=False):
-    converters: dict[int | str, Callable[[str], str]]
-    float_precision: Literal["round_trip"]
-
 
 # --- Validation ---
 
@@ -220,32 +210,6 @@ TABULAR_EXTENSIONS: tuple[str, ...] = (
 )
 """Extensions of delimited-text tables PyNCBI can read straight from a URL."""
 
-PARQUET_EXTENSIONS: tuple[str, ...] = (".parquet",)
-"""Extensions of binary columnar tables (readable, but only where pyarrow is installed)."""
-
-EXACT_FLOAT_PARSING: Literal["round_trip"] = "round_trip"
-
-
-def table_read_options(*, text_columns: Sequence[str] = ()) -> _TableReadOptions:
-    """Preserve feature IDs and use correctly rounded floats across pandas versions."""
-    import pandas as pd
-
-    options: _TableReadOptions = {"converters": {0: str, **dict.fromkeys(text_columns, str)}}
-    # pandas 3.1 made its default correctly rounded and deprecated float_precision.
-    version = tuple(int(part) for part in pd.__version__.split(".")[:2])
-    if version < (3, 1):
-        options["float_precision"] = EXACT_FLOAT_PARSING
-    return options
-
-
-"""pandas float parser that returns the nearest representable double.
-
-pandas' default converter is faster but can land one unit in the last place away from the
-value in the file. PyNCBI promises never to alter a measurement, so every table of
-measurements is parsed with this setting. The cost is roughly 2x on parsing alone, which
-is noise next to the download it follows.
-"""
-
 COMPRESSED_OUTPUT_SUFFIXES: tuple[str, ...] = (
     ".gz",
     ".gzip",
@@ -258,16 +222,14 @@ COMPRESSED_OUTPUT_SUFFIXES: tuple[str, ...] = (
 """Destination names that mean "save the remote file here, as-is", not "fill this folder"."""
 
 
-def is_tabular_file(name: str, *, include_parquet: bool = False) -> bool:
+def is_tabular_file(name: str) -> bool:
     """True when `name` (a filename or URL) looks like a readable data table.
 
     Args:
         name: Filename or URL; the query string and path are both tolerated
-        include_parquet: Also accept binary columnar tables (`.parquet`)
     """
     fname = file_name(name).lower()
-    extensions = TABULAR_EXTENSIONS + (PARQUET_EXTENSIONS if include_parquet else ())
-    return fname.endswith(extensions)
+    return fname.endswith(TABULAR_EXTENSIONS)
 
 
 class SmartFileSelector:
@@ -283,7 +245,7 @@ class SmartFileSelector:
             return 0
 
         for idx, url in enumerate(files):
-            if is_tabular_file(url, include_parquet=True):
+            if is_tabular_file(url):
                 return idx
 
         return 0
@@ -291,9 +253,7 @@ class SmartFileSelector:
 
 __all__ = [
     "TABULAR_EXTENSIONS",
-    "PARQUET_EXTENSIONS",
     "COMPRESSED_OUTPUT_SUFFIXES",
-    "EXACT_FLOAT_PARSING",
     "is_tabular_file",
     "validate_accession",
     "DataStatus",

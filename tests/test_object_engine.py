@@ -5,9 +5,9 @@ from __future__ import annotations
 import gzip
 from concurrent.futures import ThreadPoolExecutor
 
-import pandas as pd
 import pytest
 
+from native_support import assert_equal, cell, cell_at, data_fields, fixture_record, table_empty
 from PyNCBI import GSE, GSM, Config
 from PyNCBI.core.exceptions import PyNCBIError
 from PyNCBI.domains.expression import load_expression
@@ -101,16 +101,16 @@ def client():
 @pytest.mark.parametrize("mode", ["auto", "matrix", "rnaseq", "supp"])
 def test_series_modes_match_functional_measurements(study, client, tmp_path, mode):
     if mode == "auto":
-        expected = load_expression("GSE1", http_client=client).matrix_df
+        expected = load_expression("GSE1", http_client=client).matrix
     elif mode == "matrix":
-        expected = load_series_matrix("GSE1", http_client=client).matrix_df
+        expected = load_series_matrix("GSE1", http_client=client).matrix
     elif mode == "rnaseq":
         expected = load_rnaseq_counts("GSE1", http_client=client)
     else:
         expected = read_supplementary_table(study.url("/supp/first.tsv.gz"), http_client=client)
     kwargs = {"file_index": 0} if mode == "supp" else {}
     obj = GSE("GSE1", mode=mode, _http_client=client, _cache=LocalCache(tmp_path), **kwargs)
-    pd.testing.assert_frame_equal(obj.to_dataframe("data"), expected, check_exact=True)
+    assert_equal(obj.to_table("data"), expected)
 
 
 def test_auto_does_not_download_metadata_twice(study, client, tmp_path):
@@ -132,14 +132,14 @@ def test_cache_separates_sources_and_selected_files(study, client, tmp_path):
     expected = []
     for request in requests:
         obj = GSE("GSE1", _http_client=client, _cache=cache, **request)
-        expected.append(obj.to_dataframe("data"))
-    assert expected[0].iloc[0, 0] == PRECISION
-    assert expected[1].iloc[0, 0] == 11
-    assert expected[3].iloc[0, 0] == 9.5
+        expected.append(obj.to_table("data"))
+    assert cell_at(expected[0], 0, 0) == PRECISION
+    assert cell_at(expected[1], 0, 0) == 11
+    assert cell_at(expected[3], 0, 0) == 9.5
     before = len(study.hits)
     for request, frame in zip(requests, expected, strict=True):
         obj = GSE("GSE1", _http_client=client, _cache=cache, **request)
-        pd.testing.assert_frame_equal(obj.to_dataframe("data"), frame, check_exact=True)
+        assert_equal(obj.to_table("data"), frame)
     assert len(study.hits) == before
     assert obj.clear_cache()
     assert not cache.list_keys("GSE1*")
@@ -152,7 +152,7 @@ def test_shell_cache_contains_no_measurements_even_after_full_fetch(study, clien
     before = len(study.hits)
     series = GSE("GSE1", shell_only=True, _http_client=client, _cache=cache)
     sample = GSM("GSM1", shell_only=True, _http_client=client, _cache=cache)
-    assert series.to_dataframe("data").empty and sample.data is None
+    assert table_empty(series.to_table("data")) and sample.data is None
     assert all(s.data is None for s in series.values())
     assert len(study.hits) == before
 
@@ -170,8 +170,8 @@ def test_arbitrary_stateful_selectors_do_not_reuse_full_data(study, client, tmp_
     cache = LocalCache(tmp_path)
     a = GSE("GSE1", mode="supp", file_selector=selector, _http_client=client, _cache=cache)
     b = GSE("GSE1", mode="supp", file_selector=selector, _http_client=client, _cache=cache)
-    assert a.to_dataframe("data").iloc[0, 0] == PRECISION
-    assert b.to_dataframe("data").iloc[0, 0] == 9.5
+    assert cell_at(a.to_table("data"), 0, 0) == PRECISION
+    assert cell_at(b.to_table("data"), 0, 0) == 9.5
     assert not a.is_cached() and not b.is_cached()
 
 
@@ -184,9 +184,9 @@ def test_gsm_gse_and_download_share_exact_on_page_values(study, client, tmp_path
         0
     ]
     for frame in (gsm.data, loaded.data):
-        assert frame.loc["0001234", "GSM1"] == PRECISION
-        pd.testing.assert_frame_equal(frame, gsm.data, check_exact=True)
-    assert series.to_dataframe("data").loc["0001234", "GSM1"] == PRECISION
+        assert cell(frame, "0001234", "GSM1") == PRECISION
+        assert_equal(frame, gsm.data)
+    assert cell(series.to_table("data"), "0001234", "GSM1") == PRECISION
     assert "age" in gsm.characteristics and gsm.characteristics["age"] == "45"
     text = path.read_text(encoding="utf-8")
     assert "0001234" in text and repr(PRECISION) in text
@@ -198,7 +198,7 @@ def test_data_status_and_hydration_do_not_make_requests(study, client, tmp_path)
     before = len(study.hits)
     assert obj.data_status.name == "DATA_ON_PAGE"
     again = GSM("GSM1", _http_client=client, _cache=cache)
-    pd.testing.assert_frame_equal(obj.data, again.data, check_exact=True)
+    assert_equal(obj.data, again.data)
     assert len(study.hits) == before
 
 
@@ -223,7 +223,7 @@ def test_missing_sample_data_is_reported_and_partial_data_is_not_cached(study, c
     )
     assert obj.failed_samples == ["GSM10"]
     assert obj.to_dict()["failures"][0]["error_code"] == "no_data"
-    assert list(obj.to_dataframe("data").columns) == ["GSM1"]
+    assert list(data_fields(obj.to_table("data"))) == ["GSM1"]
     assert not obj.is_cached()
 
 
@@ -233,17 +233,17 @@ def test_raw_file_manifest_is_not_a_measurement_matrix(study, client, tmp_path):
     study.add("/batch?acc=GSE1", sample)
     study.add("/query?acc=GSM10", "^SAMPLE = GSM10\n")
     obj = GSE("GSE1", mode="per_gsm", _http_client=client, _cache=LocalCache(tmp_path))
-    assert list(obj["GSM1"].data.columns) == ["file", "url"]
-    assert obj.to_dataframe("data").empty
+    assert list(data_fields(obj["GSM1"].data)) == ["file", "url"]
+    assert table_empty(obj.to_table("data"))
 
 
 def test_old_accession_only_object_cache_is_invalidated(study, client, tmp_path):
     cache = LocalCache(tmp_path)
     cache.set(
-        "GSE1", {"gse_id": "GSE1", "shell_only": False, "gsm_data": {"GSM1": pd.Series([999])}}
+        "GSE1", {"gse_id": "GSE1", "shell_only": False, "gsm_data": {"GSM1": fixture_record([999])}}
     )
     obj = GSE("GSE1", mode="matrix", _http_client=client, _cache=cache)
-    assert obj.to_dataframe("data").iloc[0, 0] == PRECISION
+    assert cell_at(obj.to_table("data"), 0, 0) == PRECISION
 
 
 def test_empty_injected_cache_is_used_and_concurrent_writes_are_atomic(study, client, tmp_path):
@@ -317,7 +317,7 @@ def test_auto_can_fall_back_from_unsupported_rnaseq_organism(study, client, tmp_
     expected = load_expression("GSE1", http_client=client)
     obj = GSE("GSE1", _http_client=client, _cache=LocalCache(tmp_path))
     assert expected.source == obj.to_dict()["source"] == "series_matrix"
-    pd.testing.assert_frame_equal(obj.to_dataframe("data"), expected.matrix_df, check_exact=True)
+    assert_equal(obj.to_table("data"), expected.matrix)
 
 
 def test_gsm_integer_accessor_and_cache_keep_large_counts_exact(study, client, tmp_path):
@@ -330,3 +330,19 @@ def test_gsm_integer_accessor_and_cache_keep_large_counts_exact(study, client, t
         obj = GSM("GSM1", _http_client=client, _cache=cache)
         assert obj["0001234"] == 9007199254740993
         assert isinstance(obj["0001234"], int)
+
+
+def test_series_and_cache_keep_one_matrix_with_sample_views(study, client, tmp_path):
+    cache = LocalCache(tmp_path)
+    series = GSE("GSE1", mode="matrix", _http_client=client, _cache=cache)
+    matrix = series._state.matrix
+    assert matrix is not None
+    for sample in series.values():
+        assert sample._state.data is None
+        assert sample._state._matrix is matrix
+        assert sample.has_data
+    hits = len(study.hits)
+    restored = GSE("GSE1", mode="matrix", _http_client=client, _cache=cache)
+    assert len(study.hits) == hits
+    assert restored["GSM1"]._state._matrix is restored._state.matrix
+    assert restored["GSM1"].data["rows"] == [[row[0], row[1]] for row in matrix["rows"]]

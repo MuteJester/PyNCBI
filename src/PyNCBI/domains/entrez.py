@@ -12,11 +12,8 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-import pandas as pd
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.formatter import save_data
@@ -31,7 +28,9 @@ from PyNCBI.core.models import (
     TaxonRecord,
 )
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import Table, from_records, iter_records, project, table
 from PyNCBI.io.http_client import get_default_client, normalize_ncbi_url
+from PyNCBI.parsing.tabular import parse_delimited_table
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -829,7 +828,7 @@ def fetch_sra_runs(
     limit: int | None = 500,
     save_to: str | Path | None = None,
     http_client: HttpClient | None = None,
-) -> pd.DataFrame:
+) -> Table:
     """Fetch an NCBI SRA RunInfo table for any GSE, GSM, PRJNA, SRP, SRX, SRR, or search query.
 
     Automatically resolves GEO Series (GSE) or Sample (GSM) accessions to their
@@ -838,11 +837,11 @@ def fetch_sra_runs(
     Args:
         accession_or_query: GSE, GSM, PRJNA, SRP, SRX, SRR accession, or Entrez SRA query
         limit: Maximum number of SRA experiments to fetch (default 500)
-        save_to: Optional path (.csv, .tsv, .parquet, .json) to save the RunInfo table
+        save_to: Optional path (.csv, .tsv, .json) to save the RunInfo table
         http_client: Optional HTTP client
 
     Returns:
-        DataFrame indexed by `Run` (SRR...) with sequencing metadata, layout, size_MB, and download_path
+        Native table with an explicit `Run` field (SRR...) with sequencing metadata, layout, size_MB, and download_path
     """
     client = http_client or get_default_client()
     q = accession_or_query.strip()
@@ -874,7 +873,7 @@ def fetch_sra_runs(
         id_list, total_count = esearch_ids("sra", search_term, limit=limit, http_client=client)
         if not id_list:
             task.complete(f"Found 0 SRA runs for '{q}'")
-            return pd.DataFrame()
+            return table()
         if total_count > len(id_list):
             reporter.warn(
                 "SRA",
@@ -884,7 +883,7 @@ def fetch_sra_runs(
             )
 
         task.step(f"Fetching RunInfo CSV for {len(id_list)} SRA experiment(s)")
-        frames: list[pd.DataFrame] = []
+        frames: list[Table] = []
         for i in range(0, len(id_list), ESUMMARY_BATCH_SIZE):
             batch = id_list[i : i + ESUMMARY_BATCH_SIZE]
             csv_text = client.get_text(
@@ -897,17 +896,27 @@ def fetch_sra_runs(
                 },
             )
             if csv_text.strip():
-                frames.append(pd.read_csv(StringIO(csv_text.strip()), low_memory=False))
+                frames.append(
+                    parse_delimited_table(
+                        csv_text.strip(), "runinfo.csv", id_field="Run", numeric=False
+                    )
+                )
         if not frames:
             task.complete(f"Found 0 SRA runs for '{q}'")
-            return pd.DataFrame()
+            return table()
 
-        df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
-        if "Run" in df.columns:
-            df = df[df["Run"].notna() & (df["Run"].astype(str) != "Run")]
-
-        if df.empty:
-            task.complete(f"Found 0 SRA runs for '{q}'")
+        df = from_records(record for value in frames for record in iter_records(value))
+        if "Run" in df["columns"]:
+            df = from_records(
+                (
+                    record
+                    for record in iter_records(df)
+                    if record.get("Run") and record["Run"] != "Run"
+                ),
+                df["columns"],
+            )
+        if not df["rows"]:
+            task.complete(f"Found 0 SRA runs for {q!r}")
             return df
 
         priority_cols = [
@@ -930,18 +939,16 @@ def fetch_sra_runs(
             "ReleaseDate",
             "download_path",
         ]
-        ordered = [c for c in priority_cols if c in df.columns] + [
-            c for c in df.columns if c not in priority_cols
+        ordered = [c for c in priority_cols if c in df["columns"]] + [
+            c for c in df["columns"] if c not in priority_cols
         ]
-        df = df[ordered]
-        if "Run" in df.columns:
-            df = df.set_index("Run", drop=False)
+        df = project(df, ordered)
 
-        if save_to is not None and not df.empty:
+        if save_to is not None and df["rows"]:
             save_data(df, save_to)
             task.step(f"Saved SRA RunInfo table to {save_to}")
 
-        task.complete(f"Retrieved {len(df)} SRA run(s) for '{q}'")
+        task.complete(f"Retrieved {len(df['rows'])} SRA run(s) for '{q}'")
         return df
 
 

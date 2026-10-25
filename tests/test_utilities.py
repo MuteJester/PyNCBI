@@ -3,6 +3,8 @@ import tarfile
 
 import pytest
 
+from native_support import cell, data_fields
+
 
 def test_parse_characteristics_handles_colons():
     from PyNCBI.parsing import parse_characteristics
@@ -10,9 +12,9 @@ def test_parse_characteristics_handles_colons():
     data = ["key: value: extra\nno_colon\nother: 1"]
     df = parse_characteristics(data)
 
-    assert df.loc[0, "key"] == "value: extra"
-    assert df.loc[0, "other"] == "1"
-    assert "no_colon" not in df.columns
+    assert cell(df, "0", "key") == "value: extra"
+    assert cell(df, "0", "other") == "1"
+    assert "no_colon" not in data_fields(df)
 
 
 def test_extract_tarfile_blocks_traversal(tmp_path):

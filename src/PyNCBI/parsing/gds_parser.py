@@ -9,9 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.exceptions import DataError
+from PyNCBI.core.tables import Table, from_records, project, table
 from PyNCBI.parsing.tabular import parse_delimited_table
 
 if TYPE_CHECKING:
@@ -26,10 +25,10 @@ class GDSResult:
     info: dict[str, str] = field(default_factory=dict)
     subsets: list[dict[str, Any]] = field(default_factory=list)
     column_descriptions: dict[str, str] = field(default_factory=dict)
-    table_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    table: Table = field(default_factory=table)
 
     @property
-    def sample_groups_df(self) -> pd.DataFrame:
+    def sample_groups(self) -> Table:
         """Samples x subset-type matrix (e.g. 'genotype/variation' -> 'wild type')."""
         rows: dict[str, dict[str, str]] = {}
         for sub in self.subsets:
@@ -37,22 +36,27 @@ class GDSResult:
                 rows.setdefault(gsm, {})[str(sub.get("type", "subset"))] = str(
                     sub.get("description", "")
                 )
-        df = pd.DataFrame.from_dict(rows, orient="index")
-        df.index.name = "gsm_id"
-        return df
+        return from_records({"gsm_id": gsm, **values} for gsm, values in rows.items())
 
-    def expression_df(self) -> pd.DataFrame:
-        """Numeric value matrix only (GSM columns), indexed by `ID_REF`."""
-        gsm_cols = [c for c in self.table_df.columns if str(c).startswith("GSM")]
-        return self.table_df[gsm_cols]
+    def expression_table(self) -> Table:
+        """Hosted measurement fields, with the explicit feature identifier column."""
+        return project(
+            self.table,
+            [
+                name
+                for name in self.table["columns"]
+                if name == "feature_id" or name.startswith("GSM")
+            ],
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "gds_id": self.gds_id,
             "info": self.info,
             "subsets": self.subsets,
-            "shape": list(self.table_df.shape),
-            "columns": [str(c) for c in self.table_df.columns],
+            "table": self.table,
+            "shape": [len(self.table["rows"]), len(self.table["columns"])],
+            "columns": self.table["columns"],
         }
 
 
@@ -125,15 +129,18 @@ def parse_gds_soft(lines: Iterable[str], gds_id: str = "") -> GDSResult:
         text_columns=[col for col in header[1:] if not col.startswith("GSM")],
     )
     invalid = [
-        col
-        for col in df.columns
-        if col.startswith("GSM") and not df.empty and not pd.api.types.is_numeric_dtype(df[col])
+        name
+        for index, name in enumerate(df["columns"])
+        if name.startswith("GSM")
+        and any(
+            row[index] is not None and not isinstance(row[index], (int, float))
+            for row in df["rows"]
+        )
     ]
     if invalid:
         raise DataError(
-            f"Non-numeric measurements in {gds_id or 'GDS'} column(s): {', '.join(invalid)}",
-            hint="Inspect the source table; invalid measurements are not silently replaced with missing values",
+            f"Non-numeric measurements in {gds_id or 'GDS'} column(s): {', '.join(invalid)}"
         )
     return GDSResult(
-        gds_id=gds_id, info=info, subsets=subsets, column_descriptions=col_desc, table_df=df
+        gds_id=gds_id, info=info, subsets=subsets, column_descriptions=col_desc, table=df
     )

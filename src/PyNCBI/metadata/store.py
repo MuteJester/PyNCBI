@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from PyNCBI.core.exceptions import DataError
+from PyNCBI.core.formatter import save_data
 from PyNCBI.core.serialization import json_dumps
 from PyNCBI.io.cache import LocalCache
 from PyNCBI.metadata import vocabulary
@@ -138,9 +139,9 @@ def save_study_record(record: StudyRecord, output_dir: str | Path) -> dict[str, 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "study.json").write_text(json_dumps(record.to_dict(), indent=2) + "\n", encoding="utf-8")
-    record.samples_df().to_csv(out / "samples.csv")
-    record.harmonized_df().to_csv(out / "samples_harmonized.csv")
-    record.provenance_df().to_csv(out / "provenance.csv", index=False)
+    save_data(record.sample_table(), out / "samples.csv")
+    save_data(record.harmonized_table(), out / "samples_harmonized.csv")
+    save_data(record.provenance_table(), out / "provenance.csv")
     (out / "quality.json").write_text(
         json_dumps(record.quality.to_dict() if record.quality else {}, indent=2) + "\n",
         encoding="utf-8",

@@ -8,10 +8,11 @@ from typing import TYPE_CHECKING
 
 from PyNCBI.cli.console import _determine_mode, print  # noqa: A001
 from PyNCBI.core.formatter import (
-    format_dataframe_preview,
+    format_table_preview,
     render_output,
     save_data,
 )
+from PyNCBI.core.tables import column, preview_records, project
 from PyNCBI.domains.blast_search import BlastJob, blast, check_blast, fetch_blast
 from PyNCBI.domains.entrez import (
     fetch_fasta,
@@ -29,14 +30,14 @@ def _cmd_sra(args: argparse.Namespace) -> int:
     mode = _determine_mode(args)
     query = " ".join(args.query).strip()
     df = fetch_sra_runs(query, limit=args.limit, save_to=args.output)
-    saved_files = [str(Path(args.output).resolve())] if args.output and not df.empty else []
+    saved_files = [str(Path(args.output).resolve())] if args.output and df["rows"] else []
 
     if mode == "json":
         payload = {
             "query": query,
-            "run_count": len(df),
-            "columns": [str(c) for c in df.columns],
-            "runs": df.head(args.max_rows).to_dict(orient="records"),
+            "run_count": len(df["rows"]),
+            "columns": [str(c) for c in df["columns"]],
+            "runs": preview_records(df, args.max_rows),
         }
         print(
             render_output(
@@ -44,7 +45,7 @@ def _cmd_sra(args: argparse.Namespace) -> int:
                 mode="json",
                 command="sra",
                 target=query,
-                summary=f"Found {len(df)} SRA sequencing run(s) for '{query}'",
+                summary=f"Found {len(df['rows'])} SRA sequencing run(s) for '{query}'",
                 saved_files=saved_files,
             )
         )
@@ -62,19 +63,17 @@ def _cmd_sra(args: argparse.Namespace) -> int:
             "spots",
             "size_MB",
         )
-        if c in df.columns
+        if c in df["columns"]
     ]
-    view_df = df[display_cols] if display_cols else df
+    view_df = project(df, display_cols) if display_cols else df
     header = (
-        f"# SRA RunInfo: {query} ({len(df)} runs)\n"
+        f"# SRA RunInfo: {query} ({len(df['rows'])} runs)\n"
         if mode == "markdown"
-        else f"=== SRA RunInfo: {query} ({len(df)} runs) ===\n"
+        else f"=== SRA RunInfo: {query} ({len(df['rows'])} runs) ===\n"
     )
-    out = header + format_dataframe_preview(
-        view_df.reset_index(drop=True), mode=mode, max_rows=args.max_rows, max_cols=10
-    )
+    out = header + format_table_preview(view_df, mode=mode, max_rows=args.max_rows, max_cols=10)
     if saved_files:
-        out += f"\n\nSaved full SRA RunInfo table ({len(df)} runs) to: {saved_files[0]}"
+        out += f"\n\nSaved full SRA RunInfo table ({len(df['rows'])} runs) to: {saved_files[0]}"
     print(out)
     return 0
 
@@ -149,17 +148,17 @@ def _cmd_fastq(args: argparse.Namespace) -> int:
         )
         return 0
     df = fetch_fastq_urls(acc, save_to=args.output)
-    saved = [str(Path(args.output).resolve())] if args.output and not df.empty else []
-    total = int(df["size_bytes"].fillna(0).sum()) if not df.empty else 0
+    saved = [str(Path(args.output).resolve())] if args.output and df["rows"] else []
+    total = int(sum(value or 0 for value in column(df, "size_bytes"))) if df["rows"] else 0
     if mode == "json":
         payload = {
             "accession": acc,
-            "file_count": len(df),
-            "run_count": int(df["run_accession"].nunique()) if not df.empty else 0,
+            "file_count": len(df["rows"]),
+            "run_count": int(len(set(column(df, "run_accession")))) if df["rows"] else 0,
             "total_size_bytes": total,
             "total_size_human": format_size_human(total),
-            "columns": [str(c) for c in df.columns],
-            "files": df.head(args.max_rows).to_dict(orient="records"),
+            "columns": [str(c) for c in df["columns"]],
+            "files": preview_records(df, args.max_rows),
         }
         print(
             render_output(
@@ -167,9 +166,11 @@ def _cmd_fastq(args: argparse.Namespace) -> int:
                 mode="json",
                 command="fastq",
                 target=acc,
-                summary=f"{len(df)} FASTQ file(s) ({format_size_human(total)}) for {acc}",
+                summary=f"{len(df['rows'])} FASTQ file(s) ({format_size_human(total)}) for {acc}",
                 saved_files=saved,
-                next_steps=[f"pyncbi fastq {acc} --download -o ./{acc}_fastq/"] if len(df) else [],
+                next_steps=[f"pyncbi fastq {acc} --download -o ./{acc}_fastq/"]
+                if len(df["rows"])
+                else [],
             )
         )
         return 0
@@ -183,15 +184,15 @@ def _cmd_fastq(args: argparse.Namespace) -> int:
             "library_layout",
             "library_strategy",
         )
-        if c in df.columns
+        if c in df["columns"]
     ]
     header = (
-        f"# FASTQ files: {acc} ({len(df)} files, {format_size_human(total)})\n"
+        f"# FASTQ files: {acc} ({len(df['rows'])} files, {format_size_human(total)})\n"
         if mode == "markdown"
-        else f"=== FASTQ files: {acc} ({len(df)} files, {format_size_human(total)}) ===\n"
+        else f"=== FASTQ files: {acc} ({len(df['rows'])} files, {format_size_human(total)}) ===\n"
     )
-    out = header + format_dataframe_preview(
-        df[cols].reset_index(drop=True) if cols else df,
+    out = header + format_table_preview(
+        project(df, cols) if cols else df,
         mode=mode,
         max_rows=args.max_rows,
         max_cols=8,

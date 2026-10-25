@@ -10,10 +10,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
+from native_support import assert_equal, cell, data_fields, fixture_table, identifiers, identify
 from PyNCBI.core.config import Config
+from PyNCBI.core.tables import by_id
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src" / "PyNCBI"
@@ -62,18 +63,16 @@ def test_series_object_and_function_agree_on_the_sample_table(facade_geo):
     """One series, two entry points, one table: same rows, same values, one extra request."""
     from PyNCBI import GSE, extract_gse_samples
 
-    samples_df, chars_df, summaries = extract_gse_samples("GSE200")
+    sample_table, chars_df, summaries = extract_gse_samples("GSE200")
     functional_requests = len(facade_geo.hits)
 
     gse = GSE("GSE200", shell_only=True)
     object_requests = len(facade_geo.hits) - functional_requests
 
-    assert list(gse.characteristics_df.index) == list(chars_df.index)
-    assert sorted(gse.characteristics_df.columns) == sorted(chars_df.columns)
-    pd.testing.assert_frame_equal(
-        gse.characteristics_df.sort_index(axis=1), chars_df.sort_index(axis=1)
-    )
-    assert sorted(gse.samples_df.columns) == sorted(samples_df.columns)
+    assert list(identifiers(gse.characteristics_table)) == list(identifiers(chars_df))
+    assert sorted(data_fields(gse.characteristics_table)) == sorted(data_fields(chars_df))
+    assert by_id(gse.characteristics_table, "gsm_id") == by_id(chars_df, "gsm_id")
+    assert sorted(data_fields(gse.sample_table)) == sorted(data_fields(sample_table))
     assert [s.name for s in gse.characteristics_summary] == [s.name for s in summaries]
     # The object spends exactly one request more than the function: the series header.
     assert object_requests == functional_requests + 1
@@ -144,7 +143,7 @@ def test_remote_parquet_table_is_never_parsed_as_delimited_text(local_http):
     """A remote .parquet must not be run through the CSV reader and returned as garbage."""
     from PyNCBI.domains.geo import read_supplementary_table
 
-    frame = pd.DataFrame({"gene": ["A1BG", "A2M"], "GSM1": [3, 7]}).set_index("gene")
+    frame = identify(fixture_table({"gene": ["A1BG", "A2M"], "GSM1": [3, 7]}), "gene")
     try:
         import pyarrow  # noqa: F401
     except ImportError:
@@ -162,7 +161,7 @@ def test_remote_parquet_table_is_never_parsed_as_delimited_text(local_http):
 
     if pyarrow_available:
         got = read_supplementary_table(url)
-        pd.testing.assert_frame_equal(got, frame)
+        assert_equal(got, frame)
     else:
         with pytest.raises(Exception) as excinfo:  # noqa: B017, PT011
             read_supplementary_table(url)
@@ -181,9 +180,9 @@ def test_series_object_matches_accessions_without_confusing_prefixes(facade_geo)
         "/geo/query/batch.cgi?acc=GSE200", ids(BATCH_SOFT.format(base=facade_geo.base_url))
     )
     study = GSE("GSE200", shell_only=True)
-    study._match_columns_to_gsms(pd.DataFrame({"GSM10": [0.75]}, index=["probe1"]))
+    study._match_columns_to_gsms(fixture_table({"GSM10": [0.75]}, index=["probe1"]))
     assert study["GSM1"].data is None
-    assert study["GSM10"].data.loc["probe1"] == 0.75
+    assert cell(study["GSM10"].data, "probe1", "GSM10") == 0.75
 
 
 def test_series_object_does_not_guess_between_ambiguous_titles(facade_geo):
@@ -192,5 +191,5 @@ def test_series_object_does_not_guess_between_ambiguous_titles(facade_geo):
     shared_title = BATCH_SOFT.replace("Case one", "shared").replace("Case two", "shared")
     facade_geo.add("/geo/query/batch.cgi?acc=GSE200", shared_title.format(base=facade_geo.base_url))
     study = GSE("GSE200", shell_only=True)
-    study._match_columns_to_gsms(pd.DataFrame({"shared": [0.75]}, index=["probe1"]))
+    study._match_columns_to_gsms(fixture_table({"shared": [0.75]}, index=["probe1"]))
     assert all(sample.data is None for sample in study.values())

@@ -38,6 +38,7 @@ from PyNCBI.domains.geo.preview import preview_geo_file
 from PyNCBI.domains.geo.resolve import CohortFile, resolve_cohort_files
 from PyNCBI.domains.geo.samples import extract_gse_samples
 from PyNCBI.domains.geo.tables import (
+    iter_supplementary_records,
     load_gds,
     load_rnaseq_counts,
     load_series_matrix,
@@ -70,6 +71,7 @@ __all__ = [
     "platform_of_gsm",
     "preview_geo_file",
     "read_supplementary_table",
+    "iter_supplementary_records",
     "resolve_cohort_files",
     "resolve_rnaseq_assembly",
     "rnaseq_counts_url",

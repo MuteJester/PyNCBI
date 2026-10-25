@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
-from PyNCBI.core.formatter import summarize_characteristics_df
+from PyNCBI.core.formatter import summarize_characteristics
 from PyNCBI.io.urls import supplementary_urls
 
 if TYPE_CHECKING:
@@ -25,9 +25,9 @@ def series_summary(state: SeriesState) -> dict[str, Any]:
         "gsm_ids": list(ids),
         "supplementary_files": supplementary_urls(state.info.get("supplementary_file")),
         "characteristics_summary": [
-            s.to_dict() for s in summarize_characteristics_df(state.characteristics_df)
+            s.to_dict() for s in summarize_characteristics(state.characteristics_table)
         ],
-        "info": state.info.to_dict(),
+        "info": dict(state.info),
         "failed_samples": state.failed_samples,
         "failures": [asdict(f) for f in state.failures],
         "source": state.source,
@@ -40,9 +40,13 @@ def sample_summary(state: SampleState) -> dict[str, Any]:
         "title": str(state.info.get("title", "")),
         "gse": state.gse_id,
         "platform_id": state.platform_id,
-        "characteristics": state.characteristics.to_dict(),
+        "characteristics": dict(state.characteristics),
         "supplementary_files": list(state.supplementary_files),
-        "has_data": state.data is not None,
-        "data_shape": list(state.data.shape) if state.data is not None else None,
-        "info": state.info.to_dict(),
+        "has_data": state.data is not None or state._matrix is not None,
+        "data_shape": [len(state._matrix["rows"]), 2]
+        if state._matrix is not None
+        else [len(state.data["rows"]), len(state.data["columns"])]
+        if state.data is not None
+        else None,
+        "info": dict(state.info),
     }

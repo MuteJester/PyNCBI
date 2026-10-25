@@ -1,27 +1,30 @@
 """Unified terminal and file output formatter for PyNCBI.
 
 Provides helpers to:
-- Summarize sample characteristics DataFrames into human/agent-readable stats
-- Render DataFrames, dictionaries, and domain models neatly to Terminal (`text`),
+- Summarize sample characteristics tables into human/agent-readable stats
+- Render native tables, dictionaries, and domain models neatly to Terminal (`text`),
   `markdown`, or `json` (`AgentEnvelope`)
-- Export tabular and structured data to `.csv`, `.tsv`, `.parquet`, or `.json`
+- Export tabular and structured data to `.csv`, `.tsv`, or `.json`
 """
 
 from __future__ import annotations
 
+import csv
+import math
+import statistics
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
-
-import pandas as pd
 
 from PyNCBI.core.exceptions import ConfigurationError
 from PyNCBI.core.invocation import begin_run as begin_run
 from PyNCBI.core.invocation import run_snapshot
 from PyNCBI.core.models import AgentEnvelope, CharacteristicSummary
-from PyNCBI.core.serialization import json_dumps, table_records
+from PyNCBI.core.serialization import json_dumps
+from PyNCBI.core.tables import Table, from_records, is_table
 
-ENVELOPE_SCHEMA_VERSION = "1.1"
+ENVELOPE_SCHEMA_VERSION = "2.0"
 
 _CONSOLE_FALLBACKS: dict[str, str] = {
     "\u2022": "*",  # bullet
@@ -81,175 +84,123 @@ def emit(text: str) -> None:
     sys.stdout.flush()
 
 
-def summarize_characteristics_df(df: pd.DataFrame) -> list[CharacteristicSummary]:
-    """Compute column-by-column summaries for a sample characteristics DataFrame."""
-    if df is None or df.empty:
-        return []
-
-    total_rows = len(df)
-    summaries: list[CharacteristicSummary] = []
-
-    for col in df.columns:
-        series = df[col].dropna()
-        series = series[series.astype(str).str.strip() != ""]  # type: ignore[misc]
-        non_null = len(series)
-        if non_null == 0:
+def summarize_characteristics(value: Table) -> list[CharacteristicSummary]:
+    """Describe metadata fields using native values; never transform source records."""
+    result = []
+    for index, name in enumerate(value["columns"]):
+        if name == "gsm_id":
             continue
-
-        # Attempt numeric conversion if >= 80% of non-null values are numbers
-        numeric_series = pd.to_numeric(series, errors="coerce")
-        valid_numeric = numeric_series.dropna()
-
-        if len(valid_numeric) >= max(2, int(0.8 * non_null)) and valid_numeric.nunique() > 2:
-            stats = {
-                "min": float(valid_numeric.min()),
-                "max": float(valid_numeric.max()),
-                "mean": float(valid_numeric.mean()),
-                "median": float(valid_numeric.median()),
-                "std": float(valid_numeric.std()) if len(valid_numeric) > 1 else 0.0,
-            }
-            summaries.append(
+        values = [
+            row[index]
+            for row in value["rows"]
+            if row[index] is not None and str(row[index]).strip()
+        ]
+        if not values:
+            continue
+        numeric = []
+        for item in values:
+            try:
+                number = float(item)
+                if math.isfinite(number):
+                    numeric.append(number)
+            except (ValueError, TypeError):
+                pass
+        if len(numeric) >= max(2, int(0.8 * len(values))) and len(set(numeric)) > 2:
+            result.append(
                 CharacteristicSummary(
-                    name=str(col),
-                    dtype="numeric",
-                    non_null_count=non_null,
-                    total_count=total_rows,
-                    unique_count=int(valid_numeric.nunique()),
-                    value_counts=None,
-                    numeric_stats=stats,
+                    name,
+                    "numeric",
+                    len(values),
+                    len(value["rows"]),
+                    len(set(numeric)),
+                    numeric_stats={
+                        "min": min(numeric),
+                        "max": max(numeric),
+                        "mean": statistics.mean(numeric),
+                        "median": statistics.median(numeric),
+                        "std": statistics.stdev(numeric) if len(numeric) > 1 else 0,
+                    },
                 )
             )
         else:
-            vc = series.astype(str).value_counts().head(20)
-            vc_dict = {str(k): int(v) for k, v in vc.items()}
-            summaries.append(
+            counts = Counter(str(item) for item in values)
+            result.append(
                 CharacteristicSummary(
-                    name=str(col),
-                    dtype="categorical",
-                    non_null_count=non_null,
-                    total_count=total_rows,
-                    unique_count=int(series.nunique()),
-                    value_counts=vc_dict,
-                    numeric_stats=None,
+                    name,
+                    "categorical",
+                    len(values),
+                    len(value["rows"]),
+                    len(counts),
+                    value_counts=dict(counts.most_common(20)),
                 )
             )
+    return result
 
-    return summaries
+
+def _native(value: Any) -> Any:
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    if isinstance(value, list):
+        return [_native(item) for item in value]
+    return value
 
 
-def _write_parquet(df: pd.DataFrame, dest: Path, *, index: bool = True) -> None:
-    """Write Parquet, turning a missing engine into an instruction rather than a traceback.
-
-    Parquet needs `pyarrow`, which PyNCBI deliberately does not depend on: the engine is
-    far larger than the rest of the package combined, and every other output format works
-    without it. Install it with `pip install "PyNCBI[parquet]"` when it is wanted.
-    """
-    try:
-        df.to_parquet(dest, index=index)
-    except ImportError as exc:
+def save_data(data: Any, output_path: str | Path) -> Path:
+    """Write native data as JSON, CSV or TSV using only the Python standard library."""
+    destination = Path(output_path)
+    suffix = destination.suffix.lower()
+    if suffix in (".parquet", ".yaml", ".yml", ".xlsx", ".feather"):
         raise ConfigurationError(
-            f"Writing {dest.name} needs a Parquet engine, which is not installed",
-            hint=(
-                'Install it with `pip install "PyNCBI[parquet]"` (or `pip install pyarrow`), '
-                "or choose a .csv, .tsv or .json output path instead."
-            ),
-        ) from exc
-
-
-def save_data(
-    data: pd.DataFrame | pd.Series | dict[str, Any] | list[Any],
-    output_path: str | Path,
-) -> Path:
-    """Save tabular or structured data to disk based on file extension.
-
-    Supported extensions:
-        - `.csv` (comma-separated)
-        - `.tsv` or `.txt` (tab-separated)
-        - `.parquet` (Apache Parquet)
-        - `.json` (JSON)
-    """
-    dest = Path(output_path)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    suffix = dest.suffix.lower()
-
-    if isinstance(data, pd.Series):
-        df = data.to_frame()
-    elif isinstance(data, pd.DataFrame):
-        df = data
+            f"{suffix} conversion belongs to the caller; PyNCBI exports JSON, CSV and TSV"
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    data = _native(data)
+    if suffix in (".csv", ".tsv", ".txt") and (is_table(data) or isinstance(data, list)):
+        value = data if is_table(data) else from_records(data if isinstance(data, list) else [])
+        with destination.open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.writer(stream, delimiter="," if suffix == ".csv" else "\t")
+            writer.writerow(value["columns"])
+            writer.writerows(value["rows"])
     else:
-        df = None
-
-    if df is not None:
-        if suffix == ".parquet":
-            _write_parquet(df, dest)
-        elif suffix in (".tsv", ".txt"):
-            df.to_csv(dest, sep="\t")
-        elif suffix == ".json":
-            dest.write_text(json_dumps(table_records(df), indent=2), encoding="utf-8")
-        else:
-            df.to_csv(dest)
-        return dest
-
-    # Dict or list payload
-    if suffix in (".csv", ".tsv") and isinstance(data, list):
-        pd.DataFrame(data).to_csv(dest, sep="\t" if suffix == ".tsv" else ",", index=False)
-    elif suffix == ".parquet" and isinstance(data, list):
-        _write_parquet(pd.DataFrame(data), dest, index=False)
-    else:
-        dest.write_text(json_dumps(data, indent=2), encoding="utf-8")
-
-    return dest
+        destination.write_text(json_dumps(data, indent=2), encoding="utf-8")
+    return destination
 
 
-def format_dataframe_preview(
-    df: pd.DataFrame,
-    mode: str = "text",
-    max_rows: int = 15,
-    max_cols: int = 10,
+def format_table_preview(
+    value: Table, mode: str = "text", max_rows: int = 15, max_cols: int = 10
 ) -> str:
-    """Format a DataFrame into a concise terminal, Markdown, or JSON preview."""
-    if df is None or df.empty:
+    """Render bounded native data without an analysis library."""
+    if not value or not value["rows"]:
         return "(Empty table)"
-
-    n_rows, n_cols = df.shape
-    preview_df = df.iloc[:max_rows, :max_cols]
-
+    names = value["columns"][:max_cols]
+    rows = [row[:max_cols] for row in value["rows"][:max_rows]]
+    total_rows, total_columns = len(value["rows"]), len(value["columns"])
     if mode == "json":
-        payload = {
-            "shape": [n_rows, n_cols],
-            "index_name": df.index.name or "index",
-            "columns": [str(c) for c in df.columns[:100]],
-            "preview_rows": preview_df.reset_index().to_dict(orient="records"),
-            "truncated_rows": n_rows > max_rows,
-            "truncated_cols": n_cols > max_cols,
-        }
-        return json_dumps(payload, indent=2)
+        return json_dumps(
+            {
+                "columns": names,
+                "rows": rows,
+                "total_rows": total_rows,
+                "total_columns": total_columns,
+                "truncated_rows": total_rows > max_rows,
+                "truncated_cols": total_columns > max_cols,
+            },
+            indent=2,
+        )
+
+    def cell(item: Any) -> str:
+        return "" if item is None else str(item).replace("\n", " ").replace("|", "\\|")[:60]
 
     if mode == "markdown":
-        header = f"**Table Shape:** `{n_rows:,} rows × {n_cols:,} columns`\n\n"
-        cols = list(preview_df.columns)
-        idx_name = preview_df.index.name or "Index"
-        md_lines = [
-            "| " + " | ".join([str(idx_name)] + [str(c) for c in cols]) + " |",
-            "| " + " | ".join(["---"] * (len(cols) + 1)) + " |",
-        ]
-        for idx, row in preview_df.iterrows():
-            vals = [str(idx)] + [
-                str(row[c]).replace("\n", " ")[:60] if pd.notna(row[c]) else "" for c in cols
-            ]
-            md_lines.append("| " + " | ".join(vals) + " |")
-        footer = ""
-        if n_rows > max_rows or n_cols > max_cols:
-            footer = f"\n\n*Showing first {min(n_rows, max_rows)} of {n_rows:,} rows and {min(n_cols, max_cols)} of {n_cols:,} columns.*"
-        return header + "\n".join(md_lines) + footer
-
-    # Default text mode
-    header = f"Table Shape: {n_rows:,} rows × {n_cols:,} columns\n"
-    table_str = preview_df.to_string(max_rows=max_rows, max_cols=max_cols)
-    footer = ""
-    if n_rows > max_rows or n_cols > max_cols:
-        footer = f"\n... (Showing {min(n_rows, max_rows)}/{n_rows:,} rows, {min(n_cols, max_cols)}/{n_cols:,} columns)"
-    return header + table_str + footer
+        lines = ["| " + " | ".join(names) + " |", "| " + " | ".join("---" for _ in names) + " |"]
+        lines.extend("| " + " | ".join(cell(item) for item in row) + " |" for row in rows)
+    else:
+        lines = ["\t".join(names), *["\t".join(cell(item) for item in row) for row in rows]]
+    if total_rows > max_rows or total_columns > max_cols:
+        lines.append(
+            f"Showing {len(rows)}/{total_rows} rows and {len(names)}/{total_columns} columns"
+        )
+    return f"Table Shape: {total_rows:,} rows x {total_columns:,} columns\n\n" + "\n".join(lines)
 
 
 def render_output(
@@ -264,90 +215,46 @@ def render_output(
     warnings: list[str] | None = None,
     max_rows: int = 15,
 ) -> str:
-    """Render any PyNCBI result into `text`, `markdown`, or `json` (`AgentEnvelope`)."""
-    saved_files = saved_files or []
-    next_steps = next_steps or []
-    warnings = warnings or []
-
+    """Render native data or a domain record, including the versioned agent envelope."""
+    payload = _native(data)
     if mode == "json":
-        if isinstance(data, pd.DataFrame):
-            n_rows, n_cols = data.shape
-            serialized_data: Any = {
-                "shape": [n_rows, n_cols],
-                "index_name": data.index.name or "index",
-                "columns": [str(c) for c in data.columns[:100]],
-                "preview": data.iloc[:max_rows, :15].reset_index().to_dict(orient="records"),
+        if is_table(payload):
+            payload = {
+                **payload,
+                "rows": payload["rows"][:max_rows],
+                "total_rows": len(payload["rows"]),
+                "truncated": len(payload["rows"]) > max_rows,
             }
-        elif isinstance(data, pd.Series) or hasattr(data, "to_dict"):
-            serialized_data = data.to_dict()
-        elif isinstance(data, list):
-            serialized_data = [
-                item.to_dict() if hasattr(item, "to_dict") else item for item in data
-            ]
-        else:
-            serialized_data = data
-
         elapsed_ms, request_count = run_snapshot()
-        envelope = AgentEnvelope(
+        return AgentEnvelope(
             ok=True,
             command=command,
             target=target,
             summary=summary,
-            data=serialized_data,
-            saved_files=saved_files,
-            next_steps=next_steps,
-            warnings=warnings,
+            data=payload,
+            saved_files=saved_files or [],
+            next_steps=next_steps or [],
+            warnings=warnings or [],
             schema_version=ENVELOPE_SCHEMA_VERSION,
             pyncbi_version=_package_version(),
             elapsed_ms=elapsed_ms,
             request_count=request_count,
-        )
-        return envelope.to_json()
-
-    if mode == "markdown":
-        if hasattr(data, "to_markdown") and not isinstance(data, (pd.DataFrame, pd.Series)):
-            body = data.to_markdown()
-        elif isinstance(data, pd.DataFrame):
-            body = format_dataframe_preview(data, mode="markdown", max_rows=max_rows)
-        elif isinstance(data, pd.Series):
-            body = format_dataframe_preview(data.to_frame(), mode="markdown", max_rows=max_rows)
-        elif isinstance(data, list) and data and hasattr(data[0], "to_dict"):
-            df_list = pd.DataFrame([x.to_dict() for x in data])
-            body = format_dataframe_preview(df_list, mode="markdown", max_rows=max_rows)
-        else:
-            body = f"```json\n{json_dumps(data, indent=2)}\n```"
-
-        parts = []
-        if summary and not hasattr(data, "to_markdown"):
-            parts.append(f"### {summary}\n")
-        parts.append(body)
-        if saved_files:
-            parts.append("\n**Saved Files:**\n" + "\n".join(f"- `{p}`" for p in saved_files))
-        if next_steps:
-            parts.append(
-                "\n**Suggested Next Steps:**\n" + "\n".join(f"- `{s}`" for s in next_steps)
-            )
-        return "\n".join(parts)
-
-    # Default: text mode
-    if hasattr(data, "to_text"):
+        ).to_json()
+    if mode == "markdown" and hasattr(data, "to_markdown"):
+        body = data.to_markdown()
+    elif mode == "text" and hasattr(data, "to_text"):
         body = data.to_text()
-    elif isinstance(data, pd.DataFrame):
-        body = format_dataframe_preview(data, mode="text", max_rows=max_rows)
-    elif isinstance(data, pd.Series):
-        body = data.to_string()
-    elif isinstance(data, list) and data and hasattr(data[0], "to_dict"):
-        df_list = pd.DataFrame([x.to_dict() for x in data])
-        body = format_dataframe_preview(df_list, mode="text", max_rows=max_rows)
-    elif isinstance(data, (dict, list)):
-        body = json_dumps(data, indent=2)
+    elif is_table(payload):
+        body = format_table_preview(payload, mode, max_rows=max_rows)
+    elif isinstance(payload, list) and payload and all(isinstance(item, dict) for item in payload):
+        body = format_table_preview(from_records(payload), mode, max_rows=max_rows)
     else:
-        body = str(data)
-
-    parts = []
-    if summary and not hasattr(data, "to_text"):
-        parts.append(summary + "\n")
-    parts.append(body)
+        body = json_dumps(payload, indent=2) if isinstance(payload, (dict, list)) else str(payload)
+        if mode == "markdown":
+            body = f"```json\n{body}\n```"
+    parts = ([summary + "\n"] if summary and not hasattr(data, "to_text") else []) + [body]
     if saved_files:
         parts.append("\nSaved to: " + ", ".join(saved_files))
+    if mode == "markdown" and next_steps:
+        parts.append("\nSuggested next steps:\n" + "\n".join(f"- `{step}`" for step in next_steps))
     return "\n".join(parts)

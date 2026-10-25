@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
+from native_support import cell, identifiers, read_csv_fixture, values
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.config import Config
 from PyNCBI.domains.bundle import build_study_bundle
@@ -146,12 +146,12 @@ def test_build_study_bundle_writes_complete_self_contained_directory(fake_study,
     assert "Ficoll" in overview  # methods excerpt from PMC
     assert "pyncbi download GSE100" in overview
 
-    samples = pd.read_csv(out / "samples_metadata.csv", index_col=0)
-    assert list(samples.index) == ["GSM1001", "GSM1002"]
-    assert samples.loc["GSM1002", "disease state"] == "Fibromyalgia"
+    samples = read_csv_fixture(out / "samples_metadata.csv")
+    assert list(identifiers(samples)) == ["GSM1001", "GSM1002"]
+    assert cell(samples, "GSM1002", "disease state") == "Fibromyalgia"
 
-    sra = pd.read_csv(out / "sra_runs.csv")
-    assert set(sra["Run"]) == {"SRR1", "SRR2"}
+    sra = read_csv_fixture(out / "sra_runs.csv")
+    assert set(values(sra, "Run")) == {"SRR1", "SRR2"}
 
     pubmed = json.loads((out / "pubmed_articles.json").read_text())
     assert pubmed[0]["pmid"] == "32433946"
@@ -185,12 +185,12 @@ def test_build_study_bundle_with_matrix_and_cohort_filter(fake_study, tmp_path):
     )
 
     assert bundle.sample_count == 1
-    samples = pd.read_csv(out / "samples_metadata.csv", index_col=0)
-    assert list(samples.index) == ["GSM1002"]
+    samples = read_csv_fixture(out / "samples_metadata.csv")
+    assert list(identifiers(samples)) == ["GSM1002"]
     assert "sra" not in bundle.files
     assert bundle.files["matrix"].name == "GSE100_series_matrix.csv"
-    matrix = pd.read_csv(bundle.files["matrix"], index_col=0)
-    assert matrix.loc["cg00000029", "GSM1002"] == pytest.approx(0.62)
+    matrix = read_csv_fixture(bundle.files["matrix"])
+    assert cell(matrix, "cg00000029", "GSM1002") == pytest.approx(0.62)
     pubmed = json.loads((out / "pubmed_articles.json").read_text())
     assert pubmed[0]["full_text"] is None
 

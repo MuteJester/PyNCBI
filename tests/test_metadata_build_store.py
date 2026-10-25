@@ -6,9 +6,9 @@ from __future__ import annotations
 import json
 import time
 
-import pandas as pd
 import pytest
 
+from native_support import cell, identifiers, is_missing, read_csv_fixture, values
 from PyNCBI.core.config import Config
 from PyNCBI.core.exceptions import DataError
 from PyNCBI.metadata import SCHEMA_VERSION, StudyRecord
@@ -151,12 +151,12 @@ def test_build_study_record_from_geo_with_harmonization_quality_and_links(fake_s
     codes = {i.code for i in rec.quality.issues}
     assert "ragged_characteristics" in codes  # severity/gender/age not on all samples
 
-    hdf = rec.harmonized_df()
-    assert list(hdf.index) == ["GSM1001", "GSM1002", "GSM1003"]
-    assert hdf.loc["GSM1002", "sex"] == "male" and pd.isna(hdf.loc["GSM1003", "sex"])
-    assert rec.samples_df().loc["GSM1001", "link:biosample"] == "SAMN15180526"
-    prov = rec.provenance_df()
-    assert set(prov["confidence"]) >= {"exact", "verbatim"}
+    hdf = rec.harmonized_table()
+    assert list(identifiers(hdf)) == ["GSM1001", "GSM1002", "GSM1003"]
+    assert cell(hdf, "GSM1002", "sex") == "male" and is_missing(cell(hdf, "GSM1003", "sex"))
+    assert cell(rec.sample_table(), "GSM1001", "link:biosample") == "SAMN15180526"
+    prov = rec.provenance_table()
+    assert set(values(prov, "confidence")) >= {"exact", "verbatim"}
 
 
 def test_build_study_record_cohort_filter_and_biosample_enrichment(fake_study):
@@ -222,10 +222,10 @@ def test_save_and_load_study_record_layout_with_manifest_verification(fake_study
     assert loaded.content_hash() == rec.content_hash()
     assert loaded.samples[0].harmonized["sex"].value == "female"
 
-    harmonized = pd.read_csv(out / "samples_harmonized.csv", index_col=0)
+    harmonized = read_csv_fixture(out / "samples_harmonized.csv")
     assert (
-        harmonized.loc["GSM1001", "sex"] == "female"
-        and harmonized.loc["GSM1001", "age_years"] == 45.0
+        cell(harmonized, "GSM1001", "sex") == "female"
+        and cell(harmonized, "GSM1001", "age_years") == 45.0
     )
 
     (out / "samples.csv").write_text("tampered")

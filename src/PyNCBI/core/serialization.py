@@ -9,23 +9,20 @@ from datetime import date, datetime
 from pathlib import PurePath
 from typing import Any
 
-import numpy as np
-import pandas as pd
+from PyNCBI.core.tables import Table, iter_records
 
 
 def json_value(value: Any) -> Any:
     """Return a JSON-compatible value without rounding finite measurements."""
-    if value is None or value is pd.NA or value is pd.NaT:
+    if value is None:
         return None
-    if isinstance(value, np.generic):
-        return json_value(value.item())
     if isinstance(value, float):
         return value if math.isfinite(value) else None
     if isinstance(value, (str, int, bool)):
         return value
     if isinstance(value, dict):
         return {str(k): json_value(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set, frozenset, np.ndarray)):
+    if isinstance(value, (list, tuple, set, frozenset)):
         return [json_value(v) for v in value]
     if isinstance(value, (datetime, date)):
         return value.isoformat()
@@ -56,21 +53,6 @@ def json_dumps(
     )
 
 
-def table_records(frame: pd.DataFrame) -> list[dict[str, Any]]:
-    """Export row identifiers as columns, avoiding collisions with data column names."""
-    names: list[str] = []
-    used = set(frame.columns)
-    for i, name in enumerate(frame.index.names):
-        candidate = (
-            str(name)
-            if name is not None
-            else ("index" if frame.index.nlevels == 1 else f"level_{i}")
-        )
-        while candidate in used:
-            candidate = f"_{candidate}"
-        names.append(candidate)
-        used.add(candidate)
-    return [
-        {str(k): v for k, v in row.items()}
-        for row in frame.rename_axis(names).reset_index().to_dict(orient="records")
-    ]
+def table_records(value: Table) -> list[dict[str, Any]]:
+    """Materialize row dictionaries only when the caller requests records."""
+    return list(iter_records(value))

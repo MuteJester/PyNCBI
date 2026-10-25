@@ -19,14 +19,13 @@ currently available on PyPI and the hosted documentation may differ until releas
 
 ```bash
 pip install PyNCBI
-pip install "PyNCBI[parquet]"  # optional Parquet reader/writer
 ```
 
 For the development version, clone this repository and run `pip install -e ".[dev,docs]"`.
 Python 3.10 remains a legacy compatibility target. CI also checks newer Python versions;
 see [CONTRIBUTING.md](CONTRIBUTING.md) for the release validation policy.
 
-Runtime dependencies are pandas, NumPy, requests, tqdm, and termcolor. An NCBI API key
+There are **no third-party runtime dependencies**. PyNCBI uses only the Python standard library. An NCBI API key
 is optional. Configure it with `NCBI_API_KEY`; use `NCBI_EMAIL` for your contact address.
 
 ## Find a study, inspect it, then fetch the data
@@ -60,7 +59,8 @@ with PyNCBI.Session(cache_dir="./pyncbi-cache", max_download_mb=500) as session:
     report = session.inspect_accession("GSE152418")
     samples, characteristics, summary = session.extract_gse_samples("GSE152418")
     result = session.load_expression("GSE152418", save_to="counts.csv")
-    print(result.source, result.matrix_df.shape)
+    print(result.source, len(result.matrix["rows"]))
+    print(result.matrix["columns"])
 ```
 
 The module-level functions expose the same operations. `GSE`, `GSM`, and `GEOReader`
@@ -84,11 +84,28 @@ The docs contain worked examples and the generated CLI/API references.
 
 ## Data and output contracts
 
-Raw file downloads retain the downloaded bytes. Parsed tables use Python/pandas numeric
-types; finite floating-point values keep their binary64 precision through the cache and
-JSON export. Feature identifiers retain leading zeros. JSON table files include the index
-as an explicit column; missing/non-finite values are `null`. CSV/TSV and optional Parquet
-exports also retain row identifiers. No normalization or imputation is applied to measurements.
+Raw downloads preserve the hosted bytes. Parsed tables are plain Python dictionaries:
+
+```python
+{"columns": ["feature_id", "GSM1"], "rows": [["0001234", 9007199254740993]]}
+```
+
+IDs stay strings, counts stay exact Python integers even beside missing values, and decimal
+measurements use Python floats. JSON exports use `null` for missing/non-finite values.
+JSON, CSV and TSV are built in. DataFrame conversion, YAML, Parquet and analysis belong to
+the caller; PyNCBI never installs an analysis library.
+
+For large files, consume rows without building a full table:
+
+```python
+from contextlib import closing
+
+# A downloaded file or an HTTPS URL can be used here.
+with closing(PyNCBI.iter_supplementary_records("counts.tsv.gz")) as rows:
+    for record in rows:
+        print(record)
+        break
+```
 
 Use `--json` for an agent envelope and `-o` for the complete saved result. Terminal/agent
 previews can be truncated. Metadata harmonization preserves raw fields and records the
@@ -99,7 +116,7 @@ consistency; it does not assess scientific validity.
 Download operations share a budget across nested calls and workers, and enforce it while
 reading bodies even when sizes are unknown. `--max-download-mb` overrides it where exposed.
 Metadata requests made inside an operation also count. A size plan is an estimate when
-servers omit sizes. The limit counts bytes delivered by requests, not expanded archive
+servers omit sizes. The limit counts bytes delivered by the HTTP transport, not expanded archive
 size, exported CSV size, or total lifetime session traffic. Raw file writes check free space.
 
 ## Agents and MCP

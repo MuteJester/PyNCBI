@@ -47,10 +47,10 @@ from PyNCBI.core.exceptions import (
 from PyNCBI.core.formatter import (
     begin_run,
     console_safe_text,
-    format_dataframe_preview,
+    format_table_preview,
     render_output,
     save_data,
-    summarize_characteristics_df,
+    summarize_characteristics,
 )
 from PyNCBI.core.logging import (
     LogLevel,
@@ -143,9 +143,9 @@ __all__ = [
     "TaxonRecord",
     "AgentEnvelope",
     # Formatter
-    "summarize_characteristics_df",
+    "summarize_characteristics",
     "save_data",
-    "format_dataframe_preview",
+    "format_table_preview",
     "render_output",
     # Protocols
     "HttpClient",

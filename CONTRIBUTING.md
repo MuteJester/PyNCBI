@@ -1,7 +1,7 @@
 # Contributing to PyNCBI
 
 Thanks for helping make NCBI easier to use programmatically. The bar for every change:
-no new runtime dependencies (stdlib + pandas/numpy/requests/tqdm/termcolor only), Python 3.10+ syntax only (3.10 is a legacy compatibility target), measurements are
+no third-party runtime dependencies (Python standard library only), Python 3.10+ syntax only (3.10 is a legacy compatibility target), measurements are
 never altered, and agents get structured results with clear errors.
 
 ## Development setup
@@ -75,7 +75,7 @@ Share policy and selection without forcing those operations through a full-table
 
 ## How tests are written
 
-- Offline tests never mock `requests`; they spin up a real local HTTP server (`tests/conftest.py`,
+- HTTP regression tests use real local servers; they spin up a real local HTTP server (`tests/conftest.py`,
   `local_http` fixture) and point `Config` URL templates at it, so parsers and the client are exercised
   end-to-end.
 - New NCBI behaviour must be probed live first (see `docs/superpowers/specs/` for the record of such
@@ -117,3 +117,17 @@ acquisition; `studies.py` applies explicit requests and delegates AUTO to the ex
 `geo/_cache.py` serializes/hydrates snapshots and distinguishes request identities, while
 `geo/_formatting.py` renders pure summaries. New behavior belongs in the shared engine, with
 object/function parity tests in `tests/test_object_engine.py`.
+
+## Native data and dependency boundary
+
+Runtime modules import only the standard library and PyNCBI. `core.tables.Table` is a
+TypedDict describing ordinary `columns`/`rows` dictionaries, with explicit identifier
+columns. Do not add a DataFrame compatibility layer or implicit dtype inference.
+`parsing.tabular` owns CSV decoding and native numeric parsing; iterators support large
+files without materializing records. `io.transport` owns urllib response handles and
+cookies; `NCBIClient` owns the shared retry/rate/error policy.
+
+Tests/build/docs tools live in development extras. An independent HTTP test client is
+allowed there. Isolated `python -I -S` tests exercise Python, CLI, MCP, streaming and live
+local-server retrieval without site-packages. Wheel checks reject runtime requirements
+and install with `--no-deps --no-index`. Any format beyond JSON/CSV/TSV belongs to callers.

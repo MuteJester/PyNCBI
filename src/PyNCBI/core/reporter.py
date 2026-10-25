@@ -7,12 +7,12 @@ metadata parsing, cohort filtering, or large file downloads.
 Key Features:
 - **Multi-Level Verbosity (`Verbosity`)**:
   - `SILENT (0)`: Zero stderr/stdout output (used in MCP stdio server and `--quiet` mode)
-  - `NORMAL (1)`: Interactive progress bars (`tqdm` on stderr) for downloads and multi-item tasks
+  - `NORMAL (1)`: Interactive progress bars (native on stderr) for downloads and multi-item tasks
   - `VERBOSE (2)`: Step-by-step live state reporting (`▸ starting`, `· step`, `✓ completed (142ms)`)
   - `DEBUG (3)`: Full HTTP request/response trace, rate-limiter waits, and cache operations
 - **Stderr Isolation**: All visual status lines and progress bars render strictly to `sys.stderr`,
   keeping `sys.stdout` 100% clean for `--json`, `--markdown`, FASTA, and shell pipelines.
-- **Byte-Stream & Task Progress Bars**: Built-in `tqdm` byte transfer bars (`MB/s`, `%`, `ETA`,
+- **Byte-Stream & Task Progress Bars**: Built-in native byte transfer bars (`MB/s`, `%`, `ETA`,
   resumable offset) and iterable trackers.
 - **Structured Event Hooks**: External callers (UI apps, notebooks, agent harnesses) can register
   callbacks via `reporter.subscribe(fn)` or inspect `reporter.recent_events()`.
@@ -29,8 +29,6 @@ import time
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import TYPE_CHECKING, Any
-
-from tqdm.auto import tqdm
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.logging import LogLevel, get_logger, set_level
@@ -95,22 +93,9 @@ class ByteProgressTracker:
         self._initial = max(0, initial_bytes)
         self._current = self._initial
         self._t0 = time.monotonic()
-        self._bar: Any | None = None
-
-        show_bar = self._reporter.should_show_progress_bar()
-        if show_bar:
-            self._bar = tqdm(
-                total=self._total if self._total > 0 else None,
-                initial=self._initial,
-                desc=description,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                dynamic_ncols=True,
-                file=sys.stderr,
-                leave=False,
-            )
-        elif self._reporter.verbosity >= Verbosity.VERBOSE:
+        self._last_display = 0.0
+        self._show_line = self._reporter.should_show_progress_bar()
+        if self._reporter.verbosity >= Verbosity.VERBOSE:
             size_note = f" ({self._format_bytes(self._total)})" if self._total > 0 else ""
             resume_note = (
                 f" [resuming from {self._format_bytes(self._initial)}]" if self._initial > 0 else ""
@@ -138,24 +123,31 @@ class ByteProgressTracker:
         if chunk_bytes <= 0:
             return
         self._current += chunk_bytes
-        if self._bar is not None:
-            self._bar.update(chunk_bytes)
+        now = time.monotonic()
+        if now - self._last_display >= 0.25:
+            self._last_display = now
+            if self._show_line:
+                suffix = f" / {self._format_bytes(self._total)}" if self._total else ""
+                with self._reporter._lock:
+                    sys.stderr.write(
+                        f"\r{self._description}: {self._format_bytes(self._current)}{suffix}"
+                    )
+                    sys.stderr.flush()
 
     def set_current(self, current_bytes: int, total_bytes: int = 0) -> None:
         """Update progress to an absolute `current_bytes` position."""
         if total_bytes > 0 and self._total != total_bytes:
             self._total = total_bytes
-            if self._bar is not None:
-                self._bar.total = total_bytes
         delta = current_bytes - self._current
         if delta > 0:
             self.update(delta)
 
     def close(self) -> None:
         elapsed = max(0.001, time.monotonic() - self._t0)
-        if self._bar is not None:
-            self._bar.close()
-            self._bar = None
+        if self._show_line:
+            with self._reporter._lock:
+                sys.stderr.write("\n")
+                sys.stderr.flush()
         if self._reporter.verbosity >= Verbosity.VERBOSE:
             transferred = max(0, self._current - self._initial)
             speed = self._format_bytes(transferred / elapsed) + "/s"
@@ -303,7 +295,7 @@ class ActivityReporter:
             set_level(LogLevel.DEBUG)
 
     def should_show_progress_bar(self) -> bool:
-        """Return True if interactive `tqdm` progress bars should be drawn on `sys.stderr`."""
+        """Return True if interactive native progress bars should be drawn on `sys.stderr`."""
         if self._verbosity == Verbosity.SILENT:
             return False
         if get_config().agent_mode and self._verbosity < Verbosity.VERBOSE:
@@ -443,22 +435,11 @@ class ActivityReporter:
         total: int | None = None,
         unit: str = "item",
     ) -> Iterator[Any]:
-        """Wrap an iterable with a `tqdm` progress bar on `sys.stderr` when appropriate."""
-        if self.should_show_progress_bar():
-            yield from tqdm(
-                iterable,
-                desc=description,
-                total=total,
-                unit=unit,
-                dynamic_ncols=True,
-                file=sys.stderr,
-                leave=False,
-            )
-        else:
+        """Report iterable progress with structured events and standard-library output."""
+        for current, item in enumerate(iterable, start=1):
+            yield item
             if self._verbosity >= Verbosity.VERBOSE:
-                total_str = f" ({total} {unit}s)" if total is not None else ""
-                self.step("PROGRESS", f"{description}{total_str}")
-            yield from iterable
+                self.step("PROGRESS", description, current=current, total=total)
 
     def _emit(self, event: ActivityEvent) -> None:
         with self._lock:

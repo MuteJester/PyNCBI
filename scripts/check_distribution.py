@@ -10,6 +10,7 @@ import tarfile
 import tempfile
 import venv
 import zipfile
+from email.parser import Parser
 from pathlib import Path
 
 
@@ -28,6 +29,17 @@ def check_archives(dist: Path) -> Path:
         ):
             if name not in names:
                 raise SystemExit(f"Wheel is missing {name}")
+        metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+        metadata = Parser().parsestr(archive.read(metadata_name).decode("utf-8"))
+        runtime = [
+            requirement
+            for requirement in metadata.get_all("Requires-Dist", [])
+            if "extra ==" not in requirement
+        ]
+        if runtime:
+            raise SystemExit(
+                f"The runtime must be standard-library-only; wheel declares: {runtime}"
+            )
         if any(name.endswith(".pyc") or "__pycache__/" in name for name in names):
             raise SystemExit("Wheel contains bytecode")
     with tarfile.open(archives[0]) as archive:
@@ -61,7 +73,10 @@ def smoke(wheel: Path) -> None:
         env["PYNCBI_CACHE_DIR"] = str(root / "cache")
         env["PYNCBI_AGENT_MODE"] = "1"
         subprocess.run(
-            [str(python), "-m", "pip", "install", str(wheel)], check=True, cwd=root, env=env
+            [str(python), "-m", "pip", "install", "--no-deps", "--no-index", str(wheel)],
+            check=True,
+            cwd=root,
+            env=env,
         )
 
         def run(*args, input=None):
@@ -102,7 +117,9 @@ def smoke(wheel: Path) -> None:
         ]
         if len(replies) != 2 or len(replies[1]["result"]["tools"]) != len(manifest["tools"]):
             raise SystemExit("Installed MCP server did not return its tool manifest")
-        print("Installed-wheel CLI, schemas, offline status and MCP smoke checks passed")
+        print(
+            "Dependency-free installed-wheel CLI, schemas, offline status and MCP smoke checks passed"
+        )
 
 
 def main() -> None:

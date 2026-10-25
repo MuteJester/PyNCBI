@@ -1,7 +1,7 @@
 """Local cache for PyNCBI (pickle-free).
 
-Entries are stored as gzip-compressed JSON (`<key>.json.gz`). pandas objects are encoded
-with a versioned, lossless JSON representation so cached data can never execute code on load,
+Entries are stored as gzip-compressed JSON (`<key>.json.gz`). Native Python values are encoded
+with a lossless JSON representation so cached data can never execute code on load,
 unlike the pickle-based `.ch` files used before 1.0 (those are ignored and removed by
 `clear()`).
 """
@@ -11,16 +11,13 @@ from __future__ import annotations
 import gzip
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from datetime import date, datetime, timedelta
 from fnmatch import fnmatch
 from pathlib import Path, PurePath
 from tempfile import NamedTemporaryFile
 from threading import Lock
-from typing import Any, Generic, TypeVar, cast
-
-import numpy as np
-import pandas as pd
+from typing import Any, Generic, TypeVar
 
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import CacheCorruptedError, CacheNotFoundError, CacheWriteError
@@ -35,74 +32,10 @@ LEGACY_EXTENSION = ".ch"
 _FILE_LOCK = Lock()
 
 
-def _axis_value(axis: pd.Index) -> dict[str, Any]:
-    return {
-        "values": encode_cache_value(axis.tolist()),
-        "names": encode_cache_value(list(axis.names)),
-        "multi": isinstance(axis, pd.MultiIndex),
-        "dtype": str(axis.dtype),
-    }
-
-
-def _restore_axis(data: dict[str, Any]) -> pd.Index:
-    values = decode_cache_value(data["values"])
-    names = decode_cache_value(data["names"])
-    if data["multi"]:
-        return pd.MultiIndex.from_tuples(values, names=names)
-    return cast(
-        "pd.Index", pd.Index(values, dtype=data["dtype"], name=names[0], tupleize_cols=False)
-    )
-
-
-def _dtype_value(series: pd.Series) -> dict[str, Any]:
-    if isinstance(series.dtype, pd.CategoricalDtype):
-        return {
-            "name": "category",
-            "categories": encode_cache_value(series.cat.categories.tolist()),
-            "ordered": series.cat.ordered,
-        }
-    return {"name": str(series.dtype)}
-
-
-def _restore_series(values: Any, dtype: dict[str, Any], index: pd.Index) -> pd.Series:
-    kind = dtype["name"]
-    if kind == "category":
-        kind = pd.CategoricalDtype(
-            decode_cache_value(dtype["categories"]), ordered=dtype["ordered"]
-        )
-    return cast("pd.Series", pd.Series(decode_cache_value(values), index=index, dtype=kind))
-
-
 def encode_cache_value(value: Any) -> Any:
-    """Encode cache values without pandas' decimal rounding or dtype inference."""
-    if isinstance(value, pd.DataFrame):
-        return {
-            _TAG: "DataFrameV2",
-            "index": _axis_value(value.index),
-            "columns": _axis_value(value.columns),
-            "values": [
-                encode_cache_value(value.iloc[:, i].tolist()) for i in range(len(value.columns))
-            ],
-            "dtypes": [_dtype_value(value.iloc[:, i]) for i in range(len(value.columns))],
-        }
-    if isinstance(value, pd.Series):
-        return {
-            _TAG: "SeriesV2",
-            "index": _axis_value(value.index),
-            "values": encode_cache_value(value.tolist()),
-            "dtype": _dtype_value(value),
-            "name": encode_cache_value(value.name),
-        }
-    if value is pd.NA:
-        return {_TAG: "NA"}
-    if value is pd.NaT:
-        return {_TAG: "NaT"}
-    if isinstance(value, np.generic):
-        return encode_cache_value(value.item())
+    """Encode native Python records without executable serialization or rounding."""
     if isinstance(value, float) and not math.isfinite(value):
         return {_TAG: "float", "value": str(value)}
-    if isinstance(value, pd.Timestamp):
-        return {_TAG: "timestamp", "value": value.isoformat()}
     if isinstance(value, datetime):
         return {_TAG: "datetime", "value": value.isoformat()}
     if isinstance(value, date):
@@ -113,45 +46,27 @@ def encode_cache_value(value: Any) -> Any:
         return {_TAG: "tuple", "value": [encode_cache_value(v) for v in value]}
     if isinstance(value, dict):
         return {str(k): encode_cache_value(v) for k, v in value.items()}
-    if isinstance(value, (list, set, frozenset, np.ndarray)):
+    if isinstance(value, (list, set, frozenset)):
         return [encode_cache_value(v) for v in value]
     if isinstance(value, PurePath):
         return str(value)
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
+    if is_dataclass(value) and not isinstance(value, type):
+        return encode_cache_value(asdict(value))
     if hasattr(value, "to_dict") and callable(value.to_dict):
         return encode_cache_value(value.to_dict())
-    return str(value)
+    raise TypeError(f"Cache values must be native Python data, got {type(value).__name__}")
 
 
 def decode_cache_value(value: Any) -> Any:
-    """Decode typed JSON. Old rounded pandas entries become cache misses."""
+    """Decode native data; invalidate historical DataFrame/Series snapshots."""
     if isinstance(value, dict):
         tag = value.get(_TAG)
-        if tag in ("DataFrame", "Series"):
-            raise ValueError("Legacy rounded table cache; fetch the original measurements again")
-        if tag == "DataFrameV2":
-            index = _restore_axis(value["index"])
-            columns = _restore_axis(value["columns"])
-            parts = [
-                _restore_series(v, d, index)
-                for v, d in zip(value["values"], value["dtypes"], strict=True)
-            ]
-            frame = pd.concat(parts, axis=1) if parts else pd.DataFrame(index=index)
-            frame.columns = columns
-            return frame
-        if tag == "SeriesV2":
-            series = _restore_series(value["values"], value["dtype"], _restore_axis(value["index"]))
-            series.name = decode_cache_value(value["name"])
-            return series
-        if tag == "NA":
-            return pd.NA
-        if tag == "NaT":
-            return pd.NaT
+        if tag in ("DataFrame", "Series", "DataFrameV2", "SeriesV2", "NA", "NaT", "timestamp"):
+            raise ValueError("Legacy third-party table cache; retrieve native records again")
         if tag == "float":
             return float(value["value"])
-        if tag == "timestamp":
-            return pd.Timestamp(value["value"])
         if tag == "datetime":
             return datetime.fromisoformat(value["value"])
         if tag == "date":

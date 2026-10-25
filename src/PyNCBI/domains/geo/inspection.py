@@ -179,7 +179,7 @@ def inspect_accession(
 
     # GPL Platform
     soft_text = client.get_text(cfg.get_ncbi_query_url(accession))
-    gpl_series = soft_parser.parse_gpl_to_series(soft_text)
+    gpl_series = soft_parser.parse_gpl_record(soft_text)
     urls_to_check = [
         (u, "supplementary") for u in supplementary_urls(gpl_series.get("supplementary_file"))
     ]

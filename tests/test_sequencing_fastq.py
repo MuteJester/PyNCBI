@@ -7,6 +7,7 @@ import json
 
 import pytest
 
+from native_support import data_fields, record_at, values
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.config import Config
 from PyNCBI.core.exceptions import DownloadError
@@ -58,7 +59,7 @@ ENA_ROWS = [
 
 def test_parse_ena_file_report_expands_paired_files_into_rows():
     df = parse_ena_file_report(ENA_ROWS)
-    assert list(df.columns[:6]) == [
+    assert list(data_fields(df)[:6]) == [
         "run_accession",
         "sample_alias",
         "file_name",
@@ -66,18 +67,20 @@ def test_parse_ena_file_report_expands_paired_files_into_rows():
         "size_bytes",
         "md5",
     ]
-    assert len(df) == 3
-    first = df.iloc[0]
+    assert len(df["rows"]) == 3
+    first = record_at(df, 0)
     assert (
         first["file_url"]
         == "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR119/078/SRR11957478/SRR11957478_1.fastq.gz"
     )
     assert first["size_bytes"] == 115964304 and first["md5"] == "3476ad2a61c7179f3c5451fc45ac9653"
     assert (
-        first["read_index"] == 1 and df.iloc[1]["read_index"] == 2 and df.iloc[2]["read_index"] == 0
+        first["read_index"] == 1
+        and record_at(df, 1)["read_index"] == 2
+        and record_at(df, 2)["read_index"] == 0
     )
     assert first["sample_alias"] == "GSM4598302" and first["library_layout"] == "PAIRED"
-    assert df.iloc[2]["study_accession"] == "PRJNA639275"
+    assert record_at(df, 2)["study_accession"] == "PRJNA639275"
 
 
 @pytest.fixture
@@ -110,11 +113,11 @@ def fake_ena(local_http, monkeypatch):
 
 def test_fetch_fastq_urls_resolves_gse_gsm_and_run_accessions(fake_ena):
     gse = fetch_fastq_urls("GSE152418")
-    assert gse.iloc[0]["sample_alias"] == "GSM4614986"
+    assert record_at(gse, 0)["sample_alias"] == "GSM4614986"
     gsm = fetch_fastq_urls("GSM4598302")
-    assert set(gsm["run_accession"]) == {"SRR11957478"} and len(gsm) == 2
+    assert set(values(gsm, "run_accession")) == {"SRR11957478"} and len(gsm["rows"]) == 2
     run = fetch_fastq_urls("SRR12007824")
-    assert run.iloc[0]["file_name"] == "SRR12007824.fastq.gz"
+    assert record_at(run, 0)["file_name"] == "SRR12007824.fastq.gz"
 
 
 def test_download_fastq_verifies_md5_and_reports_mismatch(fake_ena, tmp_path):

@@ -5,8 +5,7 @@ PyNCBI documentation
 Protocol server (``pyncbi mcp``) for NCBI: GEO (Series, Samples, Platforms, DataSets), Entrez
 search with pagination, PubMed abstracts and PMC full-text Methods, Gene and platform annotation,
 SRA runs and FASTQ files, BioSample / BioProject / Taxonomy records, ClinVar and dbSNP variants,
-and genome assemblies via NCBI Datasets — all with only ``pandas``, ``numpy``, ``requests``,
-``tqdm`` and ``termcolor`` as dependencies.
+and genome assemblies via NCBI Datasets — using only the Python standard library, with no third-party runtime dependencies.
 
 .. toctree::
    :maxdepth: 2

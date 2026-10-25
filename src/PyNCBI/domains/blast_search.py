@@ -25,12 +25,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import DataError, NoDataAvailableError
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import Table, from_records
 from PyNCBI.io.http_client import get_default_client
 
 if TYPE_CHECKING:
@@ -204,8 +203,8 @@ class BlastResult:
     def hit_count(self) -> int:
         return len(self.hits)
 
-    def hits_df(self) -> pd.DataFrame:
-        """Hits as a DataFrame indexed by accession, best HSP per hit."""
+    def hits_table(self) -> Table:
+        """Hits as a native table with an explicit accession field, best HSP per hit."""
         columns = [
             "hit_num",
             "title",
@@ -225,13 +224,7 @@ class BlastResult:
             "hsp_count",
             "hit_id",
         ]
-        if not self.hits:
-            return pd.DataFrame(columns=columns, index=pd.Index([], name="accession"))
-        rows = [h.to_dict() for h in self.hits]
-        df = pd.DataFrame(rows)
-        df = df.set_index("accession")
-        df.index.name = "accession"
-        return df[[c for c in columns if c in df.columns]]
+        return from_records((hit.to_dict() for hit in self.hits), ["accession", *columns])
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -510,7 +503,7 @@ def fetch_blast(
         )
         result = parse_blast_xml(xml_text, rid=clean)
         if save_to is not None and result.hits:
-            result.saved_path = save_data(result.hits_df(), save_to)
+            result.saved_path = save_data(result.hits_table(), save_to)
             task.step(f"Saved {result.hit_count} hit(s) to {result.saved_path}")
         task.complete(f"{clean}: {result.hit_count} hit(s) against {result.database or 'database'}")
         return result

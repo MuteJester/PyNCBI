@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import json
 
-import pandas as pd
 import pytest
 
+from native_support import cell, identifiers, record
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.config import Config
 from PyNCBI.domains.geo import rnaseq_counts_url
@@ -91,11 +91,11 @@ def test_screen_explicit_accessions_builds_comparison_table(geo):
     res = screen_studies(["GSE1", "GSE2", "GSE3"], max_workers=3)
     assert isinstance(res, ScreeningResult)
     table = res.table
-    assert isinstance(table, pd.DataFrame)
-    assert list(table.index) == ["GSE1", "GSE2", "GSE3"]
-    assert table.index.name == "gse_id"
+    assert isinstance(table, dict)
+    assert list(identifiers(table)) == ["GSE1", "GSE2", "GSE3"]
+    assert table["columns"][0] == "gse_id"
 
-    row = table.loc["GSE1"]
+    row = record(table, "GSE1")
     assert (
         row["sample_count"] == 4 and row["organism"] == "Homo sapiens" and row["platform"] == "GPL1"
     )
@@ -107,20 +107,20 @@ def test_screen_explicit_accessions_builds_comparison_table(geo):
     assert 0 < row["quality_score"] <= 100
     assert row["pubmed"] == "111"
 
-    assert bool(table.loc["GSE2", "has_series_matrix"]) is True
-    assert table.loc["GSE2", "age_coverage"] == 0.0
-    assert table.loc["GSE3", "harmonized_fields"] == "disease, tissue"
+    assert bool(cell(table, "GSE2", "has_series_matrix")) is True
+    assert cell(table, "GSE2", "age_coverage") == 0.0
+    assert cell(table, "GSE3", "harmonized_fields") == "disease, tissue"
     assert res.errors == {}
     assert res.to_dict()["study_count"] == 3
 
 
 def test_screen_requires_fields_and_sorts_by_usefulness(geo):
     res = screen_studies(["GSE1", "GSE2", "GSE3"], require=("sex", "age"))
-    assert list(res.table.index) == ["GSE1"]
+    assert list(identifiers(res.table)) == ["GSE1"]
     assert "sex" in res.notes[0] or "age" in res.notes[0]
 
     res_sex = screen_studies(["GSE1", "GSE2", "GSE3"], require=("sex",), sort_by="sample_count")
-    assert list(res_sex.table.index) == ["GSE2", "GSE1"]
+    assert list(identifiers(res_sex.table)) == ["GSE2", "GSE1"]
 
 
 def test_screen_from_a_geo_search_query(geo):
@@ -159,13 +159,13 @@ def test_screen_from_a_geo_search_query(geo):
         "application/json",
     )
     res = screen_studies("whole blood", limit=2)
-    assert sorted(res.table.index) == ["GSE1", "GSE2"]
+    assert sorted(identifiers(res.table)) == ["GSE1", "GSE2"]
     assert res.query == "whole blood"
 
 
 def test_screen_records_per_study_failures_without_aborting(geo):
     res = screen_studies(["GSE1", "GSE999999999"])
-    assert list(res.table.index) == ["GSE1"]
+    assert list(identifiers(res.table)) == ["GSE1"]
     assert "GSE999999999" in res.errors
     assert res.errors["GSE999999999"]["error_code"] in ("not_found", "http_error")
     assert any("GSE999999999" in n for n in res.notes)

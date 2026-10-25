@@ -9,9 +9,9 @@ import io
 import json
 import tarfile
 
-import pandas as pd
 import pytest
 
+from native_support import cell, data_fields, data_shape, fixture_table, identifiers, table_empty
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.config import Config
 from PyNCBI.core.exceptions import DataError, NoDataAvailableError
@@ -90,12 +90,14 @@ def test_source_1_ncbi_counts_preferred_for_sequencing(geo):
 
     res = load_expression("GSE1")
     assert isinstance(res, ExpressionResult)
-    assert res.source == "ncbi_rnaseq_counts" and res.matrix_df.shape == (2, 3)
+    assert res.source == "ncbi_rnaseq_counts" and data_shape(res.matrix) == (2, 3)
     assert (
-        list(res.matrix_df.columns) == ["GSM1", "GSM2", "GSM3"]
-        and res.matrix_df.index.name == "GeneID"
+        list(data_fields(res.matrix)) == ["GSM1", "GSM2", "GSM3"]
+        and res.matrix["columns"][0] == "feature_id"
     )
-    assert res.samples_df.loc["GSM1", "group"] == "case" and list(res.samples_df.index) == [
+    assert cell(res.sample_table, "GSM1", "group") == "case" and list(
+        identifiers(res.sample_table)
+    ) == [
         "GSM1",
         "GSM2",
         "GSM3",
@@ -116,8 +118,8 @@ def test_source_2_series_matrix_for_arrays(geo):
     res = load_expression("GSE2")
     assert (
         res.source == "series_matrix"
-        and res.matrix_df.shape == (2, 3)
-        and res.matrix_df.loc["p2", "GSM3"] == 6.0
+        and data_shape(res.matrix) == (2, 3)
+        and cell(res.matrix, "p2", "GSM3") == 6.0
     )
 
 
@@ -154,9 +156,9 @@ def test_source_3_supplementary_table_with_title_columns_is_mapped_to_gsms(geo):
     assert (
         res.source == "supplementary_table" and res.source_file == "GSE3_normalized_counts.csv.gz"
     )
-    assert list(res.matrix_df.columns) == ["GSM1", "GSM2", "GSM3"]
+    assert list(data_fields(res.matrix)) == ["GSM1", "GSM2", "GSM3"]
     assert res.column_mapping["Patient_2_rep1"] == "GSM2"
-    assert res.matrix_df.loc["BRCA1", "GSM3"] == 6
+    assert cell(res.matrix, "BRCA1", "GSM3") == 6
     assert any("mapped by sample title" in n.lower() for n in res.notes)
 
 
@@ -180,12 +182,12 @@ def test_source_4_per_sample_supplementary_tables_are_joined(geo):
         )
 
     res = load_expression("GSE4", max_workers=2)
-    assert res.source == "per_sample_supplementary" and list(res.matrix_df.columns) == [
+    assert res.source == "per_sample_supplementary" and list(data_fields(res.matrix)) == [
         "GSM1",
         "GSM2",
         "GSM3",
     ]
-    assert res.matrix_df.loc["BRCA1", "GSM2"] == 20
+    assert cell(res.matrix, "BRCA1", "GSM2") == 20
 
 
 def test_source_5_on_page_tables_and_source_6_tar_members(geo):
@@ -203,7 +205,7 @@ def test_source_5_on_page_tables_and_source_6_tar_members(geo):
             f"^SAMPLE = GSM{i}\n!sample_table_begin\nID_REF\tVALUE\ncg1\t{i}.5\ncg2\t{i}.0\n!sample_table_end\n",
         )
     res = load_expression("GSE5")
-    assert res.source == "on_page_tables" and res.matrix_df.loc["cg1", "GSM2"] == pytest.approx(2.5)
+    assert res.source == "on_page_tables" and cell(res.matrix, "cg1", "GSM2") == pytest.approx(2.5)
 
     # tar members
     buf = io.BytesIO()
@@ -224,7 +226,7 @@ def test_source_5_on_page_tables_and_source_6_tar_members(geo):
     )
     geo.add("/geo/series/GSE6/suppl/GSE6_RAW.tar", buf.getvalue(), "application/x-tar")
     res6 = load_expression("GSE6")
-    assert res6.source == "tar_members" and res6.matrix_df.loc["B", "GSM3"] == 13
+    assert res6.source == "tar_members" and cell(res6.matrix, "B", "GSM3") == 13
 
 
 def test_prefer_size_guard_and_no_source(geo, tmp_path):
@@ -265,7 +267,7 @@ def test_prefer_size_guard_and_no_source(geo, tmp_path):
 
 
 def test_map_columns_to_gsms_heuristics():
-    samples = pd.DataFrame(
+    samples = fixture_table(
         {"title": ["Liver_A", "Liver_B", "Kidney_A"], "description": ["S1", "S2", "S3"]},
         index=["GSM1", "GSM2", "GSM3"],
     )
@@ -273,7 +275,7 @@ def test_map_columns_to_gsms_heuristics():
     assert mapping == {"GSM2": "GSM2", "Liver_A": "GSM1", "S3": "GSM3"}
     assert any("unknown" in n for n in notes)
     # ambiguous titles are not mapped
-    dup = pd.DataFrame({"title": ["rep", "rep"]}, index=["GSM1", "GSM2"])
+    dup = fixture_table({"title": ["rep", "rep"]}, index=["GSM1", "GSM2"])
     mapping2, _ = map_columns_to_gsms(["rep"], dup)
     assert mapping2 == {}
 
@@ -298,15 +300,15 @@ def test_columns_kept_when_series_has_no_sample_sheet(geo):
 
     res = load_expression("GSE10")
     assert res.source == "supplementary_table"
-    assert list(res.matrix_df.columns) == ["GSM1", "GSM2"]  # kept as published
+    assert list(data_fields(res.matrix)) == ["GSM1", "GSM2"]  # kept as published
     assert res.column_mapping == {}
-    assert res.samples_df.empty
+    assert table_empty(res.sample_table)
     assert any("kept as published" in n.lower() for n in res.notes)
     assert not any("ignored" in n.lower() for n in res.notes)
 
 
 def test_map_columns_to_gsms_without_a_sample_sheet():
-    mapping, notes = map_columns_to_gsms(["GSM1", "x"], pd.DataFrame())
+    mapping, notes = map_columns_to_gsms(["GSM1", "x"], fixture_table())
     assert mapping == {}
     assert any("sample sheet unavailable" in n.lower() for n in notes)
 

@@ -54,15 +54,12 @@ def _parse_tabular_preview_lines(
 
     sample_block = "\n".join(clean_lines[: max_rows + 1])
     try:
-        df = parse_delimited_table(sample_block, file_name, keep_id_column=True)
-        cols = [str(c) for c in df.columns]
+        df = parse_delimited_table(sample_block, file_name)
+        cols = df["columns"]
         index_name = cols[0] if cols else ""
         # Show up to first 8 columns per row to keep preview compact
         preview_cols = cols[:8]
-        rows = [
-            {str(k): v for k, v in r.items()}
-            for r in df.head(max_rows)[preview_cols].to_dict(orient="records")
-        ]
+        rows = [dict(zip(preview_cols, row[:8], strict=True)) for row in df["rows"][:max_rows]]
         return FilePreview(
             accession=accession,
             file_name=file_name,
@@ -97,7 +94,7 @@ def preview_geo_file(
     http_client: HttpClient | None = None,
     parser: SOFTParser | None = None,
 ) -> FilePreview:
-    """Preview the columns, row identifiers, or archive members of a remote GEO file in <0.5s.
+    """Preview columns, row identifiers or archive members from a bounded remote prefix.
 
     Streams only the first 16–64 KB via HTTP Range / streaming without downloading
     the full file body.
@@ -235,7 +232,7 @@ def preview_geo_file(
     elif accession.startswith("GSM"):
         supp_urls = soft_parser.parse_gsm(soft_text, accession).supplementary_files
     else:
-        gpl_s = soft_parser.parse_gpl_to_series(soft_text)
+        gpl_s = soft_parser.parse_gpl_record(soft_text)
         raw_s = gpl_s.get("supplementary_file", [])
         supp_urls = [raw_s] if isinstance(raw_s, str) else list(raw_s)
 

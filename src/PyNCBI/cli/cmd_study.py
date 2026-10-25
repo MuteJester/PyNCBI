@@ -39,9 +39,7 @@ def _cmd_variant(args: argparse.Namespace) -> int:
     saved_files: list[str] = []
     if args.output:
         rows = result["clinvar"] or result["dbsnp"]
-        p = save_data(
-            rows if str(args.output).endswith((".csv", ".tsv", ".parquet")) else result, args.output
-        )
+        p = save_data(rows if str(args.output).endswith((".csv", ".tsv")) else result, args.output)
         saved_files.append(str(p))
     n_cv, n_snp = len(result["clinvar"]), len(result["dbsnp"])
     summary = (

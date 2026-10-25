@@ -6,9 +6,19 @@ from __future__ import annotations
 import gzip
 import json
 
-import pandas as pd
 import pytest
 
+from native_support import (
+    assert_equal,
+    cell,
+    data_fields,
+    data_shape,
+    fixture_table,
+    identifiers,
+    is_missing,
+    labels,
+    values,
+)
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.config import Config
 from PyNCBI.core.exceptions import DataError
@@ -59,20 +69,20 @@ def fake_geo(local_http, monkeypatch):
 
 def test_fetch_gpl_table_streams_full_table_and_caches_it(fake_geo):
     df = fetch_gpl_table("GPL570")
-    assert df.index.name == "ID"
-    assert df.shape == (4, 3)
-    assert df.loc["1053_at", "Gene Symbol"] == "RFC2"
+    assert df["columns"][0] == "feature_id"
+    assert data_shape(df) == (4, 3)
+    assert cell(df, "1053_at", "Gene Symbol") == "RFC2"
 
     df2 = fetch_gpl_table("GPL570", columns=["Gene Symbol"])
-    assert list(df2.columns) == ["Gene Symbol"]
+    assert list(data_fields(df2)) == ["Gene Symbol"]
     # Second call served from the local annotation cache: no new GEO request
     assert sum(1 for h in fake_geo.hits if h.startswith("/data")) == 1
 
 
 def test_fetch_gpl_table_limit_reads_only_first_rows(fake_geo):
     df = fetch_gpl_table("GPL570", limit=2, use_cache=False)
-    assert len(df) == 2
-    assert list(df.index) == ["1007_s_at", "1053_at"]
+    assert len(df["rows"]) == 2
+    assert list(identifiers(df)) == ["1007_s_at", "1053_at"]
 
 
 def test_detect_gene_columns_prefers_symbol_then_entrez():
@@ -85,18 +95,18 @@ def test_detect_gene_columns_prefers_symbol_then_entrez():
 
 
 def test_annotate_probes_prepends_gene_columns_aligned_to_probe_index(fake_geo):
-    expr = pd.DataFrame(
+    expr = fixture_table(
         {"GSM1": [1.0, 2.0, 3.0], "GSM2": [4.0, 5.0, 6.0]},
-        index=pd.Index(["1053_at", "121_at", "unknown_at"], name="probe"),
+        index=labels(["1053_at", "121_at", "unknown_at"], name="probe"),
     )
     out = annotate_probes(expr, "GPL570")
 
-    assert list(out.columns) == ["Gene Symbol", "ENTREZ_GENE_ID", "GSM1", "GSM2"]
-    assert out.loc["1053_at", "Gene Symbol"] == "RFC2"
-    assert out.loc["121_at", "ENTREZ_GENE_ID"] == "7849"
-    assert pd.isna(out.loc["unknown_at", "Gene Symbol"])
+    assert list(data_fields(out)) == ["Gene Symbol", "ENTREZ_GENE_ID", "GSM1", "GSM2"]
+    assert cell(out, "1053_at", "Gene Symbol") == "RFC2"
+    assert cell(out, "121_at", "ENTREZ_GENE_ID") == "7849"
+    assert is_missing(cell(out, "unknown_at", "Gene Symbol"))
     # Measurements untouched
-    assert out.loc["121_at", "GSM2"] == 5.0
+    assert cell(out, "121_at", "GSM2") == 5.0
 
 
 # --- NCBI RNA-seq gene annotation ----------------------------------------------------------
@@ -109,12 +119,12 @@ def test_load_rnaseq_annotation_from_geo_file_and_cache(fake_geo):
         "application/octet-stream",
     )
     table = load_rnaseq_annotation("GRCh38.p13")
-    assert table.index.name == "GeneID"
-    assert table.loc["7157", "Symbol"] == "TP53"
-    assert table.loc["672", "EnsemblGeneID"] == "ENSG00000012048"
+    assert table["columns"][0] == "gene_id"
+    assert cell(table, "7157", "Symbol") == "TP53"
+    assert cell(table, "672", "EnsemblGeneID") == "ENSG00000012048"
 
     table2 = load_rnaseq_annotation("GRCh38.p13", gene_ids=["672"])
-    assert list(table2.index) == ["672"]
+    assert list(identifiers(table2)) == ["672"]
     assert sum(1 for h in fake_geo.hits if "annot.tsv.gz" in h) == 1
 
 
@@ -126,7 +136,7 @@ def test_complete_small_annotation_table_does_not_require_another_download(fake_
     )
     first = load_rnaseq_annotation()
     cached = load_rnaseq_annotation()
-    pd.testing.assert_frame_equal(cached, first)
+    assert_equal(cached, first)
     assert sum("annot.tsv.gz" in hit for hit in fake_geo.hits) == 1
 
 
@@ -141,11 +151,9 @@ def test_large_partial_annotation_cache_is_not_treated_as_a_complete_genome(monk
     monkeypatch.setattr(
         annotation,
         "_fetch_datasets_gene_reports",
-        lambda *args: pd.DataFrame(
-            {"Symbol": ["x"] * len(ids)}, index=pd.Index(ids, name="GeneID")
-        ),
+        lambda *args: fixture_table({"Symbol": ["x"] * len(ids)}, index=labels(ids, name="GeneID")),
     )
-    assert len(load_rnaseq_annotation(gene_ids=ids)) == len(ids)
+    assert len(load_rnaseq_annotation(gene_ids=ids)["rows"]) == len(ids)
     with pytest.raises(DataError, match="no gene_ids"):
         load_rnaseq_annotation()
     assert calls == ["GRCh38.p13", "GRCh38.p13"]
@@ -186,15 +194,15 @@ def test_load_rnaseq_annotation_falls_back_to_datasets_api_when_geo_is_captcha_g
     fake_geo.add("/datasets/v2/gene/id/7157,672", json.dumps(reports), "application/json")
 
     table = load_rnaseq_annotation("GRCh38.p13", gene_ids=["7157", "672"])
-    assert table.loc["7157", "Symbol"] == "TP53"
-    assert table.loc["672", "GeneType"] == "protein-coding"
-    assert table.loc["672", "EnsemblGeneID"] == "ENSG00000012048"
-    assert set(table["source"]) == {"ncbi_datasets"}
+    assert cell(table, "7157", "Symbol") == "TP53"
+    assert cell(table, "672", "GeneType") == "protein-coding"
+    assert cell(table, "672", "EnsemblGeneID") == "ENSG00000012048"
+    assert set(values(table, "source")) == {"ncbi_datasets"}
 
     # Cached: a second call for the same IDs needs no network at all
     before = len(fake_geo.hits)
     again = load_rnaseq_annotation("GRCh38.p13", gene_ids=["672"])
-    assert again.loc["672", "Symbol"] == "BRCA1"
+    assert cell(again, "672", "Symbol") == "BRCA1"
     assert len(fake_geo.hits) == before
 
 
@@ -214,19 +222,19 @@ def test_annotate_gene_ids_prepends_symbol_columns_and_keeps_counts(fake_geo):
         gzip.compress(ANNOT_TSV.encode()),
         "application/octet-stream",
     )
-    counts = pd.DataFrame(
+    counts = fixture_table(
         {"GSM1": [10, 20, 0], "GSM2": [5, 7, 1]},
-        index=pd.Index(["7157", "100287102", "999999999"], name="GeneID"),
+        index=labels(["7157", "100287102", "999999999"], name="GeneID"),
     )
     out = annotate_gene_ids(counts)
-    assert list(out.columns) == ["Symbol", "GeneType", "EnsemblGeneID", "GSM1", "GSM2"]
-    assert out.loc["7157", "Symbol"] == "TP53"
-    assert out.loc["100287102", "GeneType"] == "transcribed_pseudogene"
-    assert pd.isna(out.loc["999999999", "Symbol"])
-    assert out.loc["100287102", "GSM1"] == 20
+    assert list(data_fields(out)) == ["Symbol", "GeneType", "EnsemblGeneID", "GSM1", "GSM2"]
+    assert cell(out, "7157", "Symbol") == "TP53"
+    assert cell(out, "100287102", "GeneType") == "transcribed_pseudogene"
+    assert is_missing(cell(out, "999999999", "Symbol"))
+    assert cell(out, "100287102", "GSM1") == 20
 
     symbols = annotate_gene_ids(["7157", "672"], columns=("Symbol",))
-    assert symbols["Symbol"].tolist() == ["TP53", "BRCA1"]
+    assert values(symbols, "Symbol") == ["TP53", "BRCA1"]
 
 
 def test_load_rnaseq_counts_annotate_true_end_to_end(fake_geo):
@@ -247,9 +255,9 @@ def test_load_rnaseq_counts_annotate_true_end_to_end(fake_geo):
     )
 
     df = load_rnaseq_counts("GSE1", annotate=True)
-    assert list(df.columns) == ["Symbol", "GeneType", "EnsemblGeneID", "GSM1", "GSM2"]
-    assert df.loc["672", "Symbol"] == "BRCA1"
-    assert int(df.loc["7157", "GSM2"]) == 4
+    assert list(data_fields(df)) == ["Symbol", "GeneType", "EnsemblGeneID", "GSM1", "GSM2"]
+    assert cell(df, "672", "Symbol") == "BRCA1"
+    assert int(cell(df, "7157", "GSM2")) == 4
 
 
 def test_cli_gpl_command_outputs_table_preview_json(fake_geo, capsys):
@@ -259,8 +267,8 @@ def test_cli_gpl_command_outputs_table_preview_json(fake_geo, capsys):
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
-    assert payload["data"]["columns"] == ["Gene Symbol", "ENTREZ_GENE_ID"]
-    assert payload["data"]["shape"] == [3, 2]
+    assert payload["data"]["columns"] == ["feature_id", "Gene Symbol", "ENTREZ_GENE_ID"]
+    assert payload["data"]["shape"] == [3, 3]
 
 
 SEQUENCING_PLATFORM_SOFT = """^PLATFORM = GPL24676

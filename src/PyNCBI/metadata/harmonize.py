@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
-import pandas as pd
-
+from PyNCBI.core.tables import Table, from_records, iter_records, table
 from PyNCBI.metadata import vocabulary
 from PyNCBI.metadata.schema import NormalizedValue
 
@@ -21,9 +21,9 @@ DERIVED_COLUMNS: dict[str, tuple[str, ...]] = {
 class HarmonizedTable:
     """Result of :func:`harmonize_characteristics`."""
 
-    normalized_df: pd.DataFrame
-    raw_df: pd.DataFrame
-    provenance_df: pd.DataFrame
+    normalized_table: Table
+    raw_table: Table
+    provenance_table: Table
     field_map: dict[str, str] = field(default_factory=dict)  # raw key -> canonical field
     unmapped_keys: list[str] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)
@@ -31,7 +31,7 @@ class HarmonizedTable:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "sample_count": int(len(self.normalized_df)),
+            "sample_count": len(self.normalized_table["rows"]),
             "mapped_fields": sorted(set(self.field_map.values())),
             "field_map": dict(self.field_map),
             "unmapped_keys": list(self.unmapped_keys),
@@ -87,36 +87,26 @@ def harmonize_sample(
 
 
 def harmonize_characteristics(
-    char_df: pd.DataFrame, *, source: str = "geo:characteristics_ch1"
+    char_df: Table, *, source: str = "geo:characteristics_ch1"
 ) -> HarmonizedTable:
-    """Harmonize a samples x characteristics DataFrame (as returned by ``extract_gse_samples``).
+    """Harmonize a samples x characteristics native table (as returned by ``extract_gse_samples``).
 
     Returns canonical columns (e.g. ``sex``, ``age``, ``disease``) plus derived columns
     (``age_unit``, ``age_years``, ``is_control``) and ``raw:<key>`` columns for keys the
     conservative vocabulary does not map, with a per-cell provenance table.
     """
-    if char_df is None or char_df.empty:
-        empty = pd.DataFrame()
+    if char_df is None or not char_df["rows"]:
         return HarmonizedTable(
-            normalized_df=empty,
-            raw_df=empty,
-            provenance_df=pd.DataFrame(
-                columns=[
-                    "gsm_id",
-                    "field",
-                    "source_key",
-                    "raw",
-                    "value",
-                    "unit",
-                    "rule",
-                    "confidence",
-                ]
-            ),
+            table(),
+            char_df or table(),
+            table(["gsm_id", "field", "source_key", "raw", "value", "unit", "rule", "confidence"]),
         )
 
     field_map: dict[str, str] = {}
     unmapped: list[str] = []
-    for key in char_df.columns:
+    for key in char_df["columns"]:
+        if key == "gsm_id":
+            continue
         canon = vocabulary.canonical_field(str(key))
         if canon is None:
             unmapped.append(str(key))
@@ -128,12 +118,15 @@ def harmonize_characteristics(
     conflicts: list[dict[str, Any]] = []
     mapped_cells = 0
     total_cells = 0
-    for gsm_id, row in char_df.iterrows():
-        out_row: dict[str, Any] = {}
+    for row in iter_records(char_df):
+        gsm_id = str(row["gsm_id"])
+        out_row: dict[str, Any] = {"gsm_id": gsm_id}
         seen: dict[str, str] = {}
-        for key in char_df.columns:
-            raw = row[key]
-            if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        for key in char_df["columns"]:
+            if key == "gsm_id":
+                continue
+            raw = row.get(key)
+            if raw is None or (isinstance(raw, float) and math.isnan(raw)):
                 continue
             total_cells += 1
             canon = field_map.get(str(key))
@@ -190,33 +183,42 @@ def harmonize_characteristics(
         ordered_cols.append(canon)
         ordered_cols.extend(DERIVED_COLUMNS.get(canon, ()))
     ordered_cols.extend(f"raw:{k}" for k in unmapped)
-    index = pd.Index(char_df.index, name=char_df.index.name or "gsm_id")
-    normalized = pd.DataFrame(rows, index=index)
-    for col in ordered_cols:
-        if col not in normalized.columns:
-            normalized[col] = pd.NA
-    normalized = normalized[[c for c in ordered_cols if c in normalized.columns]]
-    provenance = pd.DataFrame(
+    normalized = from_records(rows, ["gsm_id", *ordered_cols])
+    provenance = from_records(
         prov_rows,
-        columns=[
-            "gsm_id",
-            "field",
-            "source",
-            "source_key",
-            "raw",
-            "value",
-            "unit",
-            "rule",
-            "confidence",
-        ],
+        ["gsm_id", "field", "source", "source_key", "raw", "value", "unit", "rule", "confidence"],
     )
     coverage = (mapped_cells / total_cells) if total_cells else 0.0
     return HarmonizedTable(
-        normalized_df=normalized,
-        raw_df=char_df.copy(),
-        provenance_df=provenance,
+        normalized_table=normalized,
+        raw_table=table(char_df["columns"], char_df["rows"]),
+        provenance_table=provenance,
         field_map=field_map,
         unmapped_keys=unmapped,
         conflicts=conflicts,
         coverage=coverage,
     )
+
+
+def sample_metadata_view(
+    combined: Table, characteristics: Table, *, chars_only: bool = False, harmonize: bool = False
+) -> tuple[Table, dict[str, Any] | None]:
+    """One sample-view policy shared by CLI and MCP adapters."""
+    if not harmonize:
+        return (characteristics if chars_only else combined), None
+    result = harmonize_characteristics(characteristics)
+    if chars_only:
+        return result.normalized_table, result.summary()
+    from PyNCBI.core.tables import by_id
+
+    metadata = by_id(combined, "gsm_id") if combined["rows"] else {}
+    extra = [
+        name
+        for name in combined["columns"]
+        if name not in characteristics["columns"] and name not in result.normalized_table["columns"]
+    ]
+    rows = [
+        {**record, **{name: metadata.get(str(record["gsm_id"]), {}).get(name) for name in extra}}
+        for record in iter_records(result.normalized_table)
+    ]
+    return from_records(rows, [*result.normalized_table["columns"], *extra]), result.summary()

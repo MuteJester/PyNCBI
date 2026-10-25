@@ -6,9 +6,9 @@ import gzip
 import json
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
+from native_support import assert_equal, fixture_record, fixture_table, identifiers, labels
 from PyNCBI.core.config import Config
 from PyNCBI.io.cache import (
     CompressedPickleCache,
@@ -55,9 +55,9 @@ cg00000108\t0.87
 """
 
 
-def test_cache_value_codec_roundtrips_pandas_and_nested_containers():
-    df = pd.DataFrame({"GSM1": [0.1, 0.2]}, index=pd.Index(["cg1", "cg2"], name="probe"))
-    series = pd.Series({"title": "x", "age": "45"}, name="GSM1")
+def test_cache_value_codec_roundtrips_native_tables_and_nested_containers():
+    df = fixture_table({"GSM1": [0.1, 0.2]}, index=labels(["cg1", "cg2"], name="probe"))
+    series = fixture_record({"title": "x", "age": "45"}, name="GSM1")
     value = {
         "df": df,
         "series": series,
@@ -69,16 +69,16 @@ def test_cache_value_codec_roundtrips_pandas_and_nested_containers():
     encoded = json.loads(json.dumps(encode_cache_value(value)))
     decoded = decode_cache_value(encoded)
 
-    pd.testing.assert_frame_equal(decoded["df"], df)
-    pd.testing.assert_series_equal(decoded["series"], series)
+    assert_equal(decoded["df"], df)
+    assert_equal(decoded["series"], series)
     assert decoded["list"] == [1, "a", None]
     assert decoded["path"] == str(value["path"])
-    pd.testing.assert_frame_equal(decoded["nested"]["k"], df)
+    assert_equal(decoded["nested"]["k"], df)
 
 
 def test_local_cache_is_json_gzip_and_ignores_legacy_pickles(tmp_path):
     cache: LocalCache[dict] = LocalCache(tmp_path)
-    cache.set("GSE1", {"info": pd.Series({"title": "t"}), "n": 3})
+    cache.set("GSE1", {"info": fixture_record({"title": "t"}), "n": 3})
     stored = cache._key_to_path("GSE1")
     assert stored.suffix == ".gz" and stored.name.endswith(".json.gz")
     raw = json.loads(gzip.decompress(stored.read_bytes()))
@@ -115,7 +115,7 @@ def test_gse_shell_uses_two_requests_then_zero_from_cache(fake_geo):
 
     gse = GSE("GSE100", shell_only=True)
     assert gse.sample_count == 2
-    assert list(gse.characteristics_df.index) == ["GSM1001", "GSM1002"]
+    assert list(identifiers(gse.characteristics_table)) == ["GSM1001", "GSM1002"]
     assert gse["GSM1002"].characteristics["disease state"] == "Fibromyalgia"
     assert len(fake_geo.hits) == 2  # series header + batch sample view
 

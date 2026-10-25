@@ -7,9 +7,9 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-import pandas as pd
 import pytest
 
+from native_support import cell, data_shape, fixture_table, identifiers, is_missing, labels
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.exceptions import (
     AccessionNotFoundError,
@@ -20,10 +20,10 @@ from PyNCBI.core.exceptions import (
     redact_url,
 )
 from PyNCBI.core.formatter import (
-    format_dataframe_preview,
+    format_table_preview,
     render_output,
     save_data,
-    summarize_characteristics_df,
+    summarize_characteristics,
 )
 from PyNCBI.core.models import FASTASequence
 from PyNCBI.core.reporter import ActivityEvent, Verbosity, get_reporter, verbosity_scope
@@ -96,13 +96,13 @@ def test_batch_gse_soft_parser_handles_ragged_characteristics():
     parser = get_parser()
     info_df, char_df = parser.parse_gse_samples_batch(batch_soft)
 
-    assert list(info_df.index) == ["GSM1001", "GSM1002"]
-    assert char_df.loc["GSM1001", "age"] == "45"
-    assert pd.isna(char_df.loc["GSM1002", "age"])
-    assert char_df.loc["GSM1002", "sex"] == "Male"
-    assert char_df.loc["GSM1002", "disease state"] == "Fibromyalgia"
+    assert list(identifiers(info_df)) == ["GSM1001", "GSM1002"]
+    assert cell(char_df, "GSM1001", "age") == "45"
+    assert is_missing(cell(char_df, "GSM1002", "age"))
+    assert cell(char_df, "GSM1002", "sex") == "Male"
+    assert cell(char_df, "GSM1002", "disease state") == "Fibromyalgia"
 
-    summaries = summarize_characteristics_df(char_df)
+    summaries = summarize_characteristics(char_df)
     summary_names = {s.name for s in summaries}
     assert {"tissue", "age", "sex", "disease state"} <= summary_names
 
@@ -119,10 +119,10 @@ cg00000108\t0.875
     parser = get_parser()
     df = parser.parse_gsm_data_table(sample_table_text, "GSM1001")
 
-    assert "probe" in df.columns
-    assert df.index.name == "probe"
-    assert "cg00000029" in df.index
-    assert float(df.loc["cg00000029", "GSM1001"]) == pytest.approx(0.512, rel=1e-3)
+    assert df["columns"] == ["feature_id", "GSM1001"]
+    assert df["columns"][0] == "feature_id"
+    assert "cg00000029" in identifiers(df)
+    assert float(cell(df, "cg00000029", "GSM1001")) == pytest.approx(0.512, rel=1e-3)
 
 
 def test_series_matrix_parser():
@@ -140,16 +140,16 @@ def test_series_matrix_parser():
 """
     res = SeriesMatrixParser().parse(matrix_text)
     assert res.gse_id == "GSE99999"
-    assert list(res.samples_df.index) == ["GSM1", "GSM2"]
-    assert res.characteristics_df.loc["GSM1", "tissue"] == "Liver"
-    assert res.characteristics_df.loc["GSM2", "age"] == "60"
-    assert res.matrix_df.shape == (2, 2)
-    assert float(res.matrix_df.loc["probe_1", "GSM2"]) == pytest.approx(2.50)
+    assert list(identifiers(res.sample_table)) == ["GSM1", "GSM2"]
+    assert cell(res.characteristics_table, "GSM1", "tissue") == "Liver"
+    assert cell(res.characteristics_table, "GSM2", "age") == "60"
+    assert data_shape(res.matrix) == (2, 2)
+    assert float(cell(res.matrix, "probe_1", "GSM2")) == pytest.approx(2.50)
 
 
 def test_formatter_and_save_data(tmp_path: Path):
-    df = pd.DataFrame(
-        {"GSM1": [0.1, 0.2], "GSM2": [0.3, 0.4]}, index=pd.Index(["cg1", "cg2"], name="probe")
+    df = fixture_table(
+        {"GSM1": [0.1, 0.2], "GSM2": [0.3, 0.4]}, index=labels(["cg1", "cg2"], name="probe")
     )
 
     csv_path = save_data(df, tmp_path / "out.csv")
@@ -159,7 +159,7 @@ def test_formatter_and_save_data(tmp_path: Path):
     assert tsv_path.exists()
     assert json_path.exists()
 
-    md = format_dataframe_preview(df, mode="markdown")
+    md = format_table_preview(df, mode="markdown")
     assert "Table Shape:" in md
     assert "cg1" in md
 
@@ -167,7 +167,8 @@ def test_formatter_and_save_data(tmp_path: Path):
     parsed = json.loads(json_str)
     assert parsed["ok"] is True
     assert parsed["command"] == "test"
-    assert parsed["data"]["shape"] == [2, 2]
+    assert parsed["data"]["columns"] == ["feature_id", "GSM1", "GSM2"]
+    assert parsed["data"]["rows"] == df["rows"]
 
 
 def test_mcp_server_jsonrpc_protocol():
@@ -200,7 +201,7 @@ def test_mcp_server_jsonrpc_protocol():
 
 
 def test_sample_cohort_filtering_and_file_preview_parser():
-    df = pd.DataFrame(
+    df = fixture_table(
         {
             "title": ["S1", "S2", "S3"],
             "severity": ["Severe", "Moderate", "Severe"],
@@ -212,15 +213,15 @@ def test_sample_cohort_filtering_and_file_preview_parser():
 
     # 1. Key=value / Key:value filtering
     severe_df = _apply_sample_filter(df, "severity: Severe")
-    assert list(severe_df.index) == ["GSM1", "GSM3"]
+    assert list(identifiers(severe_df)) == ["GSM1", "GSM3"]
 
     # 2. Numeric pandas query filtering
     older_df = _apply_sample_filter(df, "age > 50")
-    assert list(older_df.index) == ["GSM1", "GSM3"]
+    assert list(identifiers(older_df)) == ["GSM1", "GSM3"]
 
     # 3. Substring fallback filtering
     blood_df = _apply_sample_filter(df, "Whole blood")
-    assert list(blood_df.index) == ["GSM3"]
+    assert list(identifiers(blood_df)) == ["GSM3"]
 
     # 4. Tabular preview parser
     lines = [
@@ -238,10 +239,10 @@ def test_sample_cohort_filtering_and_file_preview_parser():
         max_rows=2,
     )
     assert preview.total_columns == 4
-    assert preview.index_name == "GeneID"
+    assert preview.index_name == "feature_id"
     assert len(preview.preview_rows) == 2
-    assert "GeneID" in preview.to_markdown()
-    assert "GeneID" in preview.to_text()
+    assert "feature_id" in preview.to_markdown()
+    assert "feature_id" in preview.to_text()
 
     fasta = FASTASequence(
         accession="NM_007294.4",

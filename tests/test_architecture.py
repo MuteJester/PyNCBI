@@ -204,7 +204,7 @@ def test_network_and_worker_creation_use_the_shared_io_components() -> None:
                     offenders.append(f"{relative}:{node.lineno} imports an unscoped worker pool")
             else:
                 continue
-            if relative != "io/http_client.py" and any(
+            if relative not in {"io/http_client.py", "io/transport.py"} and any(
                 module == name or module.startswith(name + ".")
                 for module in modules
                 for name in ("requests", "urllib3", "urllib.request", "http.client")
@@ -213,29 +213,17 @@ def test_network_and_worker_creation_use_the_shared_io_components() -> None:
     assert offenders == [], offenders
 
 
-def test_measurement_csv_reading_uses_the_shared_parser() -> None:
-    # Annotation text and Entrez run metadata are different contracts. Every
-    # measurement table must share the identifier/precision/NA policy instead.
-    owners = {"parsing/tabular.py", "domains/annotation.py", "domains/entrez.py"}
+def test_runtime_imports_are_standard_library_only() -> None:
     offenders = []
     for path in _python_sources():
-        relative = path.relative_to(SRC_ROOT).as_posix()
-        if relative in owners:
-            continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        pandas_names = {
-            alias.asname or alias.name
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Import)
-            for alias in node.names
-            if alias.name == "pandas"
-        }
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and (
-                isinstance(node.func, ast.Attribute)
-                and node.func.attr == "read_csv"
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id in pandas_names
-            ):
-                offenders.append(f"{relative}:{node.lineno} reads CSV outside the shared parser")
+            modules = []
+            if isinstance(node, ast.Import):
+                modules = [alias.name.split(".")[0] for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0:
+                modules = [(node.module or "").split(".")[0]]
+            for name in modules:
+                if name != "PyNCBI" and name not in sys.stdlib_module_names:
+                    offenders.append(f"{path.name}:{node.lineno} imports {name}")
     assert offenders == [], offenders

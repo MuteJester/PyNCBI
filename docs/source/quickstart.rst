@@ -7,7 +7,7 @@ Why PyNCBI
 Working with NCBI by hand means juggling E-utilities rate limits, SOFT and Series Matrix
 formats, GEO's CGI download endpoints (some browser-gated), ``ftp://`` links, ragged sample
 characteristics, and five different JSON schemas for ``esummary``. PyNCBI turns all of that
-into a handful of calls that return pandas DataFrames or small dataclasses, preserve parsed measurements through caching/export and report operational failures with
+into a handful of calls that return native Python table dictionaries and small serializable records, preserve parsed measurements through caching/export and report operational failures with
 clear exceptions, ``hint`` and stable ``error_code`` values.
 
 Five-minute tour (CLI)

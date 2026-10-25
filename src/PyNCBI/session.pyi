@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
-
-import pandas as pd
 
 from PyNCBI.core.config import Config
 from PyNCBI.core.models import (
@@ -26,6 +24,7 @@ from PyNCBI.core.models import (
     TaxonRecord,
 )
 from PyNCBI.core.protocols import HttpClient
+from PyNCBI.core.tables import Table
 from PyNCBI.domains.blast_search import BlastJob, BlastResult
 from PyNCBI.domains.bundle import StudyBundle
 from PyNCBI.domains.expression import ExpressionResult
@@ -78,20 +77,20 @@ class Session:
     def __exit__(self, *args: object) -> None: ...
     def annotate_gene_ids(
         self,
-        data: pd.DataFrame | Iterable[str | int],
+        data: Table | Iterable[str | int],
         *,
         assembly: str = ...,
         columns: Sequence[str] | None = ...,
         http_client: HttpClient | None = ...,
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def annotate_probes(
         self,
-        df: pd.DataFrame,
+        data: Table,
         gpl_id: str,
         *,
         columns: Sequence[str] | None = ...,
         http_client: HttpClient | None = ...,
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def attach_full_text(
         self,
         articles: list[PubMedArticle],
@@ -145,7 +144,7 @@ class Session:
     def delete_blast(self, rid: str, *, http_client: HttpClient | None = ...) -> bool: ...
     def download_fastq(
         self,
-        accession_or_manifest: str | pd.DataFrame,
+        accession_or_manifest: str | Table,
         output_dir: str | Path | None = ...,
         *,
         runs: list[str] | None = ...,
@@ -226,7 +225,7 @@ class Session:
         save_to: str | Path | None = ...,
         http_client: HttpClient | None = ...,
         parser: SOFTParser | None = ...,
-    ) -> tuple[pd.DataFrame, pd.DataFrame, list[CharacteristicSummary]]: ...
+    ) -> tuple[Table, Table, list[CharacteristicSummary]]: ...
     def fetch_assembly(
         self, accession: str, *, http_client: HttpClient | None = ...
     ) -> AssemblyRecord: ...
@@ -261,7 +260,7 @@ class Session:
         *,
         save_to: str | Path | None = ...,
         http_client: HttpClient | None = ...,
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def fetch_genes(
         self, gene_ids: list[str] | str, *, http_client: HttpClient | None = ...
     ) -> list[GeneRecord]: ...
@@ -276,7 +275,7 @@ class Session:
         use_cache: bool = ...,
         http_client: HttpClient | None = ...,
         parser: SOFTParser | None = ...,
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def fetch_pmc_text(
         self,
         pmid_or_pmcid: str,
@@ -294,7 +293,7 @@ class Session:
         limit: int | None = ...,
         save_to: str | Path | None = ...,
         http_client: HttpClient | None = ...,
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def fetch_taxonomy(
         self, ids_or_names: list[str] | str, *, http_client: HttpClient | None = ...
     ) -> list[TaxonRecord]: ...
@@ -320,6 +319,13 @@ class Session:
         http_client: HttpClient | None = ...,
         parser: SOFTParser | None = ...,
     ) -> InspectionReport: ...
+    def iter_supplementary_records(
+        self,
+        url_or_path: str | Path,
+        *,
+        max_download_mb: float | None = ...,
+        http_client: HttpClient | None = ...,
+    ) -> Iterator[dict[str, Any]]: ...
     def link_accession(
         self, accession: str, *, http_client: HttpClient | None = ...
     ) -> dict[str, Any]: ...
@@ -352,7 +358,7 @@ class Session:
         gene_ids: Iterable[str | int] | None = ...,
         refresh: bool = ...,
         http_client: HttpClient | None = ...,
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def load_rnaseq_counts(
         self,
         gse_id: str,
@@ -364,7 +370,7 @@ class Session:
         save_to: str | Path | None = ...,
         http_client: HttpClient | None = ...,
         parser: SOFTParser | None = ...,
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def load_series_matrix(
         self,
         gse_id: str,
@@ -403,7 +409,7 @@ class Session:
     ) -> FilePreview: ...
     def read_supplementary_table(
         self, url_or_path: str | Path, *, http_client: HttpClient | None = ...
-    ) -> pd.DataFrame: ...
+    ) -> Table: ...
     def resolve_cohort_files(
         self,
         gse_id: str,

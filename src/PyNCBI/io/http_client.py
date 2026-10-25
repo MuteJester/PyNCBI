@@ -1,4 +1,4 @@
-"""Production-grade NCBI Backend Client (`NCBIClient`) for PyNCBI.
+"""Standard-library NCBI Backend Client (`NCBIClient`) for PyNCBI.
 
 Provides a unified, observable, realm-aware HTTP client for all NCBI backends:
 - Realm-specific token-bucket rate limiting (`eutils`: 3/10 req/s, `geo`: 8 req/s, `ftp`: 20 req/s)
@@ -13,7 +13,7 @@ Provides a unified, observable, realm-aware HTTP client for all NCBI backends:
 
 from __future__ import annotations
 
-import re
+import contextlib
 import sys
 import threading
 import time
@@ -22,10 +22,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
-
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from PyNCBI.core.config import Config, get_config
 from PyNCBI.core.exceptions import (
@@ -52,6 +48,14 @@ from PyNCBI.io.responses import (
 )
 from PyNCBI.io.telemetry import ClientMetrics, RequestEvent
 from PyNCBI.io.transfer_limits import read_response, response_budget
+from PyNCBI.io.transport import (
+    HTTPResponse,
+    HTTPStatusError,
+    HTTPTransport,
+    TransportConnectionError,
+    TransportError,
+    TransportTimeout,
+)
 from PyNCBI.io.urls import (
     _API_KEY_PARAM_RE,
     _CACHEABLE_PATH_RE,
@@ -103,8 +107,6 @@ class NCBIClientConfig:
     geo_rate_limit_per_sec: float = 8.0
     ftp_rate_limit_per_sec: float = 20.0
     eutils_post_threshold_chars: int = 1800
-    pool_connections: int = 20
-    pool_maxsize: int = 20
     extra_headers: dict[str, str] = field(default_factory=dict)
 
 
@@ -112,21 +114,10 @@ class NCBIClientConfig:
 HttpClientConfig = NCBIClientConfig
 
 
-def status_from_retry_error(exc: BaseException) -> int:
-    """Best-effort HTTP status from a urllib3 RetryError, whose message is all we get.
-
-    urllib3 reports an exhausted status-based retry as `too many 503 error responses`,
-    and the original response object is gone by then. The status matters because it
-    decides whether the caller sees `rate_limited` or `http_error`.
-    """
-    match = re.search(r"too many (\d{3}) error responses", str(exc))
-    return int(match.group(1)) if match else 0
-
-
 class NCBIClient:
-    """Production-grade, realm-aware HTTP backend client for NCBI.
+    """Realm-aware standard-library HTTP backend client for NCBI.
 
-    Manages connection pooling, realm-specific rate limiters (`eutils`, `geo`, `ftp`),
+    Manages standard-library HTTP transport, realm-specific rate limiters (`eutils`, `geo`, `ftp`),
     automatic E-Utilities parameter injection (`tool`, `email`, `api_key`),
     automatic `GET` -> `POST` promotion for long UID queries, application-level
     error detection, atomic `.part` resumable downloads, and request telemetry.
@@ -172,31 +163,68 @@ class NCBIClient:
         """The configuration this client reads credentials and rate limits from."""
         return self._app_config if self._app_config is not None else get_config()
 
-    def _create_session(self) -> requests.Session:
-        """Create a pooled requests Session with urllib3 retry configuration."""
-        session = requests.Session()
-        headers = {
-            "User-Agent": f"PyNCBI/{_pkg_version()} (https://github.com/MuteJester/PyNCBI)",
-            "Accept-Encoding": "gzip, deflate",
-        }
-        headers.update(self.config.extra_headers)
-        session.headers.update(headers)
+    def _create_session(self) -> HTTPTransport:
+        """Create a client-owned standard-library transport with isolated cookies."""
+        return HTTPTransport(
+            {
+                "User-Agent": f"PyNCBI/{_pkg_version()} (https://github.com/MuteJester/PyNCBI)",
+                "Accept-Encoding": "gzip, deflate",
+                **self.config.extra_headers,
+            }
+        )
 
-        retry = Retry(
-            total=self.config.max_retries,
-            backoff_factor=self.config.retry_backoff,
-            status_forcelist=self.config.retry_statuses,
-            allowed_methods=["GET", "HEAD", "POST"],
-            respect_retry_after_header=True,
-        )
-        adapter = HTTPAdapter(
-            max_retries=retry,
-            pool_connections=self.config.pool_connections,
-            pool_maxsize=self.config.pool_maxsize,
-        )
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        return session
+    def _open(self, method: str, url: str, **options: Any) -> HTTPResponse:
+        """One retry policy for metadata, HEAD, previews, streams and downloads."""
+        attempts = max(1, self.config.max_retries + 1)
+        for attempt in range(attempts):
+            started = time.monotonic()
+            response = None
+            failure = None
+            try:
+                response = self._session.request(method, url, **options)
+                if (
+                    response.status_code not in self.config.retry_statuses
+                    or attempt + 1 == attempts
+                ):
+                    return response
+            except (TransportConnectionError, TransportTimeout) as exc:
+                if attempt + 1 == attempts:
+                    raise
+                failure = exc
+            delay = min(self.config.retry_backoff * 2**attempt, 30.0)
+            if response is not None:
+                retry_after = response.headers.get("Retry-After", "")
+                try:
+                    delay = max(delay, float(retry_after))
+                except ValueError:
+                    import datetime
+                    from email.utils import parsedate_to_datetime
+
+                    with contextlib.suppress(ValueError, TypeError, OverflowError):
+                        delay = max(
+                            delay,
+                            (
+                                parsedate_to_datetime(retry_after)
+                                - datetime.datetime.now(datetime.timezone.utc)
+                            ).total_seconds(),
+                        )
+                response.close()
+            self.metrics.record(
+                RequestEvent(
+                    method=method,
+                    realm=classify_ncbi_realm(url),
+                    url=redact_url(url),
+                    status_code=response.status_code if response is not None else 0,
+                    elapsed_ms=(time.monotonic() - started) * 1000,
+                    rate_wait_ms=0,
+                    bytes_received=0,
+                    error=type(failure).__name__ if failure else "retryable_http_status",
+                )
+            )
+            self.metrics.record_retry()
+            self._realm_limiter.pause(url, max(0.0, delay))
+            self._realm_limiter.acquire(url)
+        raise AssertionError("Unreachable HTTP retry state")
 
     def _sync_rate_limit_with_config(self) -> None:
         """Keep E-Utilities rate limit synchronized if Config.api_key changes at runtime."""
@@ -259,13 +287,13 @@ class NCBIClient:
             prepared, _, _, _ = self._prepare_request(warm_url)
             # The body is irrelevant - only the `ncbi_sid` cookie matters - but the
             # response still has to be closed or its socket is never returned to the pool.
-            with self._session.get(prepared, timeout=min(15.0, self.config.timeout)) as response:
+            with self._open("GET", prepared, timeout=min(15.0, self.config.timeout)) as response:
                 response.close()
         except Exception as exc:  # noqa: BLE001 - best effort
             logger.debug("GEO session warm-up failed: %s", exc)
         return True
 
-    def _handle_rate_limit_headers(self, url: str, response: requests.Response) -> float | None:
+    def _handle_rate_limit_headers(self, url: str, response: HTTPResponse) -> float | None:
         """Inspect Retry-After headers and pause the realm's token bucket if throttled."""
         if response.status_code in (429, 503):
             retry_after_raw = response.headers.get("Retry-After")
@@ -339,7 +367,7 @@ class NCBIClient:
         params: dict[str, Any] | None = None,
         timeout: float | None = None,
         headers: dict[str, str] | None = None,
-    ) -> requests.Response:
+    ) -> HTTPResponse:
         """Central request execution pipeline with E-Utilities POST promotion,
         application-level error retries, telemetry, and structured debug logging.
         """
@@ -353,7 +381,7 @@ class NCBIClient:
             cache_key = self._cache_key(probe_url)
             if cache_key is not None:
                 cached = self.response_cache.get(cache_key)
-                if isinstance(cached, requests.Response):
+                if isinstance(cached, HTTPResponse):
                     self.metrics.record_cache_hit()
                     logger.debug("[CACHE] %s", redact_url(probe_url))
                     return cached
@@ -374,7 +402,8 @@ class NCBIClient:
             t0 = time.monotonic()
             try:
                 if use_post:
-                    response = self._session.post(
+                    response = self._open(
+                        "POST",
                         base_url,
                         data=query_dict,
                         headers=headers,
@@ -382,7 +411,8 @@ class NCBIClient:
                         stream=True,
                     )
                 else:
-                    response = self._session.get(
+                    response = self._open(
+                        "GET",
                         prepared_url,
                         headers=headers,
                         timeout=timeout,
@@ -466,7 +496,7 @@ class NCBIClient:
                         error=type(e).__name__,
                     )
                 )
-                if attempt < max_attempts:
+                if attempt < max_attempts and response.status_code != 429:
                     self.metrics.record_retry()
                     backoff = min(self.config.retry_backoff * (2 ** (attempt - 1)), 3.0)
                     get_reporter().warn(
@@ -479,7 +509,7 @@ class NCBIClient:
                     continue
                 raise
 
-            except requests.exceptions.Timeout as e:
+            except TransportTimeout as e:
                 elapsed_ms = (time.monotonic() - t0) * 1000.0
                 self.metrics.record(
                     RequestEvent(
@@ -495,7 +525,7 @@ class NCBIClient:
                 )
                 raise RequestTimeoutError(prepared_url, timeout) from e
 
-            except requests.exceptions.ConnectionError as e:
+            except TransportConnectionError as e:
                 elapsed_ms = (time.monotonic() - t0) * 1000.0
                 self.metrics.record(
                     RequestEvent(
@@ -511,7 +541,7 @@ class NCBIClient:
                 )
                 raise ConnectionFailedError(prepared_url, e) from e
 
-            except requests.exceptions.HTTPError as e:
+            except HTTPStatusError as e:
                 elapsed_ms = (time.monotonic() - t0) * 1000.0
                 status = e.response.status_code if e.response is not None else 0
                 body_snippet = ""
@@ -530,11 +560,11 @@ class NCBIClient:
                     )
                 )
                 self._inspect_application_errors(prepared_url, realm, status, body_snippet)
-                raise HTTPError(prepared_url, status, str(e)) from e
-            except requests.exceptions.RequestException as e:
-                # Everything else requests can raise: retries exhausted on a 5xx/429,
+                raise self._translate_request_exception(prepared_url, e) from e
+            except TransportError as e:
+                # Other transport failures:
                 # a connection dropped mid-body, a bad content encoding, too many
-                # redirects. Without this, a raw requests exception escapes and the
+                # redirects. Without this, a low-level transport exception escapes and the
                 # documented contract (error_code, retryable, hint) does not apply.
                 elapsed_ms = (time.monotonic() - t0) * 1000.0
                 translated = self._translate_request_exception(prepared_url, e)
@@ -566,15 +596,12 @@ class NCBIClient:
                 )
                 raise
 
-    def _translate_request_exception(
-        self, url: str, exc: requests.exceptions.RequestException
-    ) -> PyNCBIError:
-        """Map any leftover `requests` failure onto the PyNCBI error taxonomy."""
-        status = status_from_retry_error(exc)
-        if status == 429:
-            return RateLimitExceededError(url)
-        if status:
-            return HTTPError(url, status, f"{type(exc).__name__}: {exc}")
+    def _translate_request_exception(self, url: str, exc: TransportError) -> PyNCBIError:
+        """Keep low-level stdlib failures inside the public error taxonomy."""
+        if isinstance(exc, HTTPStatusError):
+            if exc.response.status_code == 429:
+                return RateLimitExceededError(url)
+            return HTTPError(url, exc.response.status_code, str(exc))
         return ConnectionFailedError(url, exc)
 
     def get_text(
@@ -639,7 +666,8 @@ class NCBIClient:
         t0 = time.monotonic()
 
         try:
-            with self._session.get(
+            with self._open(
+                "GET",
                 prepared_url,
                 headers=headers,
                 stream=True,
@@ -671,14 +699,13 @@ class NCBIClient:
                     )
                 )
                 return result
-        except requests.exceptions.Timeout as e:
+        except TransportTimeout as e:
             raise RequestTimeoutError(prepared_url, timeout) from e
-        except requests.exceptions.ConnectionError as e:
+        except TransportConnectionError as e:
             raise ConnectionFailedError(prepared_url, e) from e
-        except requests.exceptions.HTTPError as e:
-            status = e.response.status_code if e.response is not None else 0
-            raise HTTPError(prepared_url, status, str(e)) from e
-        except requests.exceptions.RequestException as e:
+        except HTTPStatusError as e:
+            raise self._translate_request_exception(prepared_url, e) from e
+        except TransportError as e:
             raise self._translate_request_exception(prepared_url, e) from e
 
     def stream_lines(
@@ -708,7 +735,7 @@ class NCBIClient:
         retried = False
 
         try:
-            with self._session.get(prepared_url, stream=True, timeout=timeout) as response:
+            with self._open("GET", prepared_url, stream=True, timeout=timeout) as response:
                 status_code = response.status_code
                 self._handle_rate_limit_headers(prepared_url, response)
                 if response.status_code == 429:
@@ -729,17 +756,17 @@ class NCBIClient:
                 finally:
                     received = bar.current_bytes
                     bar.__exit__(None, None, None)
-        except requests.exceptions.Timeout as e:
+        except TransportTimeout as e:
             error = "RequestTimeoutError"
             raise RequestTimeoutError(prepared_url, timeout) from e
-        except requests.exceptions.ConnectionError as e:
+        except TransportConnectionError as e:
             error = "ConnectionFailedError"
             raise ConnectionFailedError(prepared_url, e) from e
-        except requests.exceptions.HTTPError as e:
+        except HTTPStatusError as e:
             status = e.response.status_code if e.response is not None else 0
             error = f"HTTPError({status})"
-            raise HTTPError(prepared_url, status, str(e)) from e
-        except requests.exceptions.RequestException as e:
+            raise self._translate_request_exception(prepared_url, e) from e
+        except TransportError as e:
             error = type(e).__name__
             raise self._translate_request_exception(prepared_url, e) from e
         except BotChallengeError:
@@ -771,7 +798,7 @@ class NCBIClient:
 
     def _iter_stream_lines(
         self,
-        response: requests.Response,
+        response: HTTPResponse,
         bar: Any,
         chunk_size: int,
         encoding: str,
@@ -839,7 +866,7 @@ class NCBIClient:
         t0 = time.monotonic()
 
         try:
-            resp = self._session.head(prepared_url, allow_redirects=True, timeout=timeout)
+            resp = self._open("HEAD", prepared_url, allow_redirects=True, timeout=timeout)
             status_code = resp.status_code
             if resp.status_code == 200:
                 exists = True
@@ -850,7 +877,8 @@ class NCBIClient:
                     "last-modified"
                 )
             elif resp.status_code in (403, 405):
-                with self._session.get(
+                with self._open(
+                    "GET",
                     prepared_url,
                     headers={"Range": "bytes=0-0"},
                     stream=True,
@@ -924,12 +952,13 @@ class NCBIClient:
             if existing_bytes > 0:
                 req_headers["Range"] = f"bytes={existing_bytes}-"
 
-        response: requests.Response | None = None
+        response: HTTPResponse | None = None
         bytes_this_request = 0
         budget = response_budget(self.app_config)
         t0 = time.monotonic()
         try:
-            with self._session.get(
+            with self._open(
+                "GET",
                 prepared_url,
                 headers=req_headers,
                 stream=True,
@@ -1001,14 +1030,13 @@ class NCBIClient:
                     )
                 )
 
-        except requests.exceptions.Timeout as e:
+        except TransportTimeout as e:
             raise RequestTimeoutError(prepared_url, self.config.timeout) from e
-        except requests.exceptions.ConnectionError as e:
+        except TransportConnectionError as e:
             raise ConnectionFailedError(prepared_url, e) from e
-        except requests.exceptions.HTTPError as e:
-            status = e.response.status_code if e.response is not None else 0
-            raise HTTPError(prepared_url, status, str(e)) from e
-        except requests.exceptions.RequestException as e:
+        except HTTPStatusError as e:
+            raise self._translate_request_exception(prepared_url, e) from e
+        except TransportError as e:
             # A body that stops early (ChunkedEncodingError) is the usual way a long GEO
             # transfer dies. The partial `.part` file is kept so a retry can resume it.
             raise self._translate_request_exception(prepared_url, e) from e
@@ -1122,7 +1150,7 @@ class NCBIClient:
         }
 
     def close(self) -> None:
-        """Close the underlying HTTP session pool."""
+        """Close the client-owned transport and cookie store."""
         self._session.close()
 
     def __enter__(self) -> NCBIClient:

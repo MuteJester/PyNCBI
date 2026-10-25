@@ -1,52 +1,72 @@
 Data and output contracts
 =========================
 
+Native data
+-----------
+
+PyNCBI has no third-party runtime dependencies. Metadata uses dictionaries, lists and
+serializable domain records. Tables are ordinary Python dictionaries with two keys:
+
+.. code-block:: python
+
+   {"columns": ["feature_id", "GSM1"],
+    "rows": [["0001234", 9007199254740993], ["NA", None]]}
+
+Measurement tables expose their first column as ``feature_id``. Metadata tables use
+explicit keys such as ``gsm_id``, ``gse_id``, ``gene_id``, or the published SRA ``Run``.
+There is no hidden index or dtype state. ``iter_records(table)`` yields row dictionaries.
+Callers can wrap these native values in whichever analysis library they choose.
+
 Measurements and identifiers
 -----------------------------
 
-Raw file downloads retain the bytes returned by the server. Parsed measurements use
-pandas numeric types. Floating-point values are represented as binary64, not arbitrary
-precision decimals; parsing, caching and JSON export retain that representation without
-additional decimal rounding. Counts stored in integer columns retain integer precision.
-A mixed numeric column containing missing or fractional values may require a floating-point
-dtype; values outside that dtype's exact range are not arbitrary precision integers.
+Raw downloads retain the hosted bytes. Parsed counts are Python integers, retaining
+precision even when the same column also contains missing values. Decimal/exponent
+measurements are Python floats (binary64), not arbitrary-precision decimal numbers.
+Parsing, caching and export do not add further decimal rounding. Text values remain
+strings; malformed non-numeric GDS measurements raise ``DataError``.
 
-Feature identifiers are read as text, including leading zeros and numeric-looking IDs.
-Literal identifiers such as ``NA`` and ``null`` remain text. Missing-value markers
-(``NA``, ``N/A``, ``NaN``, ``null``, ``None`` and empty cells) apply to measurement
-columns; GDS annotation columns retain their original text.
-PyNCBI does not normalize or impute measurements. Optional annotation adds columns;
-metadata harmonization affects descriptive sample fields, with the raw values preserved.
+Identifiers remain text, including leading zeros and literal ``NA`` or ``null`` IDs.
+Missing-value markers (``NA``, ``N/A``, ``NaN``, ``null``, ``None`` and empty cells)
+apply to measurement cells, not identifiers or GDS annotation text. Missing cells are
+``None``; no imputation or normalization is applied to measurements. Metadata harmonization
+is an explicit descriptive operation that preserves raw values and provenance.
 
-JSON files and previews
------------------------
+Streaming and materialization
+-----------------------------
 
-``-o matrix.json`` writes an array of records with the index included as a column
-(e.g. ``probe`` or ``GeneID``). Unnamed indices use ``index``. If that name is already
-a data column, underscores are prepended until the index column has a unique name.
+``load_expression`` and other full-table loaders materialize native rows in memory.
+For large files, ``iter_supplementary_records(url_or_path)`` yields dictionaries lazily.
+Exhaust the generator or close it when stopping early (for example with
+``contextlib.closing``) to release its socket or file handle. The generator retains the
+operation transfer budget throughout iteration. Native Python numbers can use more
+memory than specialized array libraries; raw downloads and iterators let callers control
+that cost without an implicit analysis dependency.
 
-Finite numbers retain Python's float precision. Missing values and non-finite floats
-(``NaN``, positive or negative infinity) are JSON ``null``. Public JSON contains no
-nonstandard numeric tokens. Preserve distinctions between missing-value types or infinity
-in the in-memory result or an appropriate binary table format when those distinctions matter.
+JSON, CSV and TSV
+-----------------
 
-CLI ``--json`` returns an envelope with version, command, data, saved files and timing.
-Terminal previews and agent payloads may be bounded; use ``-o`` for complete results.
-Envelope schema versions and study-record schema versions are separate contracts.
+JSON table exports retain the same ``columns``/``rows`` structure. CSV/TSV exports write
+those explicit columns, including identifiers. Finite floats retain Python's precision;
+missing/non-finite values are JSON ``null``. Python integer digits are preserved in JSON;
+consumers must choose a number representation that can retain large integers.
 
-Cache compatibility
--------------------
+YAML, Parquet, spreadsheets and DataFrame conversion belong to callers. PyNCBI does not
+install, import or implement those libraries/formats. It can still download original
+binary files without decoding them.
 
-The local cache is gzip-compressed, typed JSON, never pickle. It retains numeric values,
-column dtypes and row labels. Older table-cache entries created with decimal rounding are
-cache misses and are replaced from the source when requested. Legacy ``.ch`` files are
-ignored; ``pyncbi cache clear`` removes them.
+CLI/MCP envelopes use schema version ``2.0`` for native data, saved files and request
+timing. Previews are bounded; save a result for complete data. Study-record schema versions
+and the MCP protocol version are separate contracts.
 
-Metadata completeness
----------------------
+Caches and metadata completeness
+--------------------------------
 
-The 0–100 quality field measures metadata completeness and consistency using documented
-issues such as absent samples, organism, platform or characteristics. It is a heuristic
-for screening records, not a measure of experimental design, biological validity, statistical
-power, publication quality, or suitability for a particular analysis. Inspect the individual
-issues and raw metadata before selecting a study.
+Caches use gzip-compressed typed JSON, never pickle. They retain native identifiers,
+integers, floats and missing values without dtype inference. Old DataFrame/Series caches
+are invalidated and fetched again. Source/file request identities remain separate, and
+partial results are never represented as a complete cache entry.
+
+The 0–100 quality field measures metadata completeness and consistency. It is a heuristic
+for screening records, not a measure of experimental design, biological validity,
+statistical power or suitability for an analysis. Inspect issues and raw metadata.

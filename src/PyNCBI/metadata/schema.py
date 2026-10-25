@@ -13,9 +13,8 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
 from typing import Any
 
-import pandas as pd
-
 from PyNCBI.core.serialization import json_dumps
+from PyNCBI.core.tables import Table, from_records
 
 SCHEMA_VERSION = "1.0"
 JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
@@ -237,11 +236,12 @@ class StudyRecord:
     def sample_count(self) -> int:
         return len(self.samples)
 
-    def samples_df(self) -> pd.DataFrame:
+    def sample_table(self) -> Table:
         """Raw sample table: core fields + original characteristics columns, indexed by GSM."""
         rows = []
         for s in self.samples:
             row: dict[str, Any] = {
+                "gsm_id": s.gsm_id,
                 "title": s.title,
                 "organism": s.organism,
                 "platform_id": s.platform_id,
@@ -251,14 +251,13 @@ class StudyRecord:
             row.update(s.characteristics)
             row.update({f"link:{k}": v for k, v in s.links.items()})
             rows.append(row)
-        df = pd.DataFrame(rows, index=pd.Index([s.gsm_id for s in self.samples], name="gsm_id"))
-        return df
+        return from_records(rows)
 
-    def harmonized_df(self) -> pd.DataFrame:
+    def harmonized_table(self) -> Table:
         """Harmonized sample table (canonical columns + derived + raw:<key> for unmapped)."""
         rows = []
         for s in self.samples:
-            row: dict[str, Any] = {}
+            row: dict[str, Any] = {"gsm_id": s.gsm_id}
             for key, nv in s.harmonized.items():
                 row[key] = nv.value
                 if nv.unit is not None:
@@ -266,9 +265,9 @@ class StudyRecord:
                 for ek, ev in nv.extra.items():
                     row[ek] = ev
             rows.append(row)
-        return pd.DataFrame(rows, index=pd.Index([s.gsm_id for s in self.samples], name="gsm_id"))
+        return from_records(rows)
 
-    def provenance_df(self) -> pd.DataFrame:
+    def provenance_table(self) -> Table:
         rows = []
         for s in self.samples:
             for key, nv in s.harmonized.items():
@@ -286,7 +285,7 @@ class StudyRecord:
                         "confidence": p.confidence,
                     }
                 )
-        return pd.DataFrame(
+        return from_records(
             rows,
             columns=[
                 "gsm_id",

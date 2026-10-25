@@ -5,8 +5,9 @@ Run with: pytest tests/test_integration.py -v
 Skip in CI with: pytest -m "not integration"
 """
 
-import pandas as pd
 import pytest
+
+from native_support import data_fields
 
 # Mark all tests in this module as integration tests
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
@@ -24,12 +25,12 @@ class TestGSMIntegration:
 
         # Should have metadata
         assert gsm.info is not None
-        assert isinstance(gsm.info, pd.Series)
+        assert isinstance(gsm.info, dict)
         assert len(gsm.info) > 0
 
-        # Should have parsed characteristics (can be dict or Series)
+        # Should have parsed characteristics (native dictionaries)
         assert gsm.characteristics is not None
-        assert isinstance(gsm.characteristics, (dict, pd.Series))
+        assert isinstance(gsm.characteristics, dict)
         assert len(gsm.characteristics) > 0
 
         # Should have GSE parent
@@ -47,14 +48,14 @@ class TestGSMIntegration:
 
         # Should have metadata
         assert gsm.info is not None
-        assert isinstance(gsm.info, pd.Series)
+        assert isinstance(gsm.info, dict)
 
-        # Should have data as DataFrame
+        # Should have data as a native table
         assert gsm.data is not None
-        if isinstance(gsm.data, pd.DataFrame):
-            assert len(gsm.data) > 0
+        if isinstance(gsm.data, dict):
+            assert len(gsm.data["rows"]) > 0
             # Should have probe column or index
-            assert "probe" in gsm.data.columns or gsm.data.index.name == "probe"
+            assert "probe" in data_fields(gsm.data) or gsm.data["columns"][0] == "feature_id"
 
         # Should have array type
         assert gsm.array_type is not None
@@ -66,8 +67,8 @@ class TestGSMIntegration:
         gsm = GSM("GSM1518180", shell_only=True)
 
         chars = gsm.characteristics
-        # Can be dict or Series depending on implementation
-        assert isinstance(chars, (dict, pd.Series))
+        # Characteristics are native dictionaries
+        assert isinstance(chars, dict)
 
         # This sample should have common characteristics
         # (exact keys may vary, but should have something)
@@ -85,7 +86,7 @@ class TestGEOReaderIntegration:
         info = reader.extract_gsm_info("GSM1518180")
 
         assert info is not None
-        assert isinstance(info, pd.Series)
+        assert isinstance(info, dict)
         assert len(info) > 0
 
     def test_list_gse_samples(self):

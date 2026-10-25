@@ -74,7 +74,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
         "description": (
             "Fetch and organize all sample metadata and unpacked '!Sample_characteristics_ch1' "
             "key:value columns for a GSE series in a single O(1) batch HTTP request. "
-            "Optionally saves the full sample table to a local CSV, TSV, Parquet, or JSON file."
+            "Optionally saves the full sample table to a local CSV, TSV, or JSON file."
         ),
         "inputSchema": {
             "type": "object",
@@ -89,7 +89,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 },
                 "save_to": {
                     "type": "string",
-                    "description": "Optional file path to save the full sample table (.csv, .tsv, .parquet, .json)",
+                    "description": "Optional file path to save the full sample table (.csv, .tsv, .json)",
                 },
                 "characteristics_only": {
                     "type": "boolean",
@@ -176,7 +176,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 },
                 "output_path": {
                     "type": "string",
-                    "description": "Destination directory or file path (.csv, .tsv, .parquet)",
+                    "description": "Destination directory or file path (.csv, .tsv, .json)",
                 },
                 "source": {
                     "type": "string",
@@ -318,7 +318,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 },
                 "save_to": {
                     "type": "string",
-                    "description": "Optional file path (.csv, .tsv, .parquet) to save the full SRA RunInfo table",
+                    "description": "Optional file path (.csv, .tsv, .json) to save the full SRA RunInfo table",
                 },
             },
             "required": ["accession_or_query"],
@@ -543,7 +543,7 @@ MCP_TOOLS: list[dict[str, Any]] = [
                 "gse_id": {"type": "string", "description": "GSE accession"},
                 "output_path": {
                     "type": "string",
-                    "description": "Save the matrix here (.csv/.tsv/.parquet); the sample sheet is written as <stem>_samples.csv",
+                    "description": "Save the matrix here (.csv/.tsv/.json); the sample sheet is written as <stem>_samples.csv",
                 },
                 "prefer": {
                     "type": "string",

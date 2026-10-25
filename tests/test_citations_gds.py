@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from native_support import cell, data_fields, data_shape
 from PyNCBI.cli.main import main as cli_main
 from PyNCBI.core.config import Config
 from PyNCBI.core.models import PubMedArticle
@@ -97,22 +98,29 @@ def test_parse_gds_soft_builds_table_subsets_and_sample_groups():
     res = parse_gds_soft(GDS_SOFT.splitlines(), gds_id="GDS1234")
     assert res.gds_id == "GDS1234" and res.info["title"] == "FGFR3 K650E mutation"
     assert res.info["reference_series"] == "GSE2606" and res.info["platform"] == "GPL85"
-    assert res.table_df.index.name == "ID_REF"
-    assert list(res.table_df.columns) == [
+    assert res.table["columns"][0] == "feature_id"
+    assert list(data_fields(res.table)) == [
         "IDENTIFIER",
         "GSM49962",
         "GSM49963",
         "GSM49958",
         "GSM49959",
     ]
-    assert res.table_df.loc["AFFX-1", "GSM49959"] == pytest.approx(199.5)
-    assert res.table_df["GSM49962"].dtype.kind == "f"
+    assert cell(res.table, "AFFX-1", "GSM49959") == pytest.approx(199.5)
+    assert isinstance(cell(res.table, "AFFX-1", "GSM49962"), float)
+    assert cell(res.table, "AFFX-2", "GSM49962") == 50
+    assert cell(res.table, "AFFX-3", "GSM49962") is None
     assert res.subsets[1]["description"] == "FGFR3 K650E" and res.subsets[1]["sample_ids"] == [
         "GSM49958",
         "GSM49959",
     ]
-    assert res.sample_groups_df.loc["GSM49958", "genotype/variation"] == "FGFR3 K650E"
-    assert res.expression_df().columns.tolist() == ["GSM49962", "GSM49963", "GSM49958", "GSM49959"]
+    assert cell(res.sample_groups, "GSM49958", "genotype/variation") == "FGFR3 K650E"
+    assert data_fields(res.expression_table()) == [
+        "GSM49962",
+        "GSM49963",
+        "GSM49958",
+        "GSM49959",
+    ]
 
 
 @pytest.fixture
@@ -151,7 +159,7 @@ def fake_gds(local_http, monkeypatch):
 
 def test_load_gds_and_inspect_gds(fake_gds, tmp_path):
     res = load_gds("GDS1234", save_to=tmp_path / "gds.csv")
-    assert res.table_df.shape == (3, 5)
+    assert data_shape(res.table) == (3, 5)
     assert (tmp_path / "gds.csv").exists()
 
     report = inspect_accession("GDS1234", check_file_sizes=True)
@@ -172,7 +180,7 @@ def test_cli_pubmed_bibtex_and_gds_command(fake_gds, tmp_path, capsys, monkeypat
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert (
-        payload["data"]["shape"] == [3, 5]
+        payload["data"]["shape"] == [3, 6]
         and payload["data"]["subsets"][0]["type"] == "genotype/variation"
     )
 

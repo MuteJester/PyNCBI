@@ -6,10 +6,9 @@ import bz2
 import gzip
 import json
 
-import numpy as np
-import pandas as pd
 import pytest
 
+from native_support import assert_equal, cell, cell_at, identifiers, is_missing, table_empty, values
 from PyNCBI.core.config import Config, config_scope
 from PyNCBI.core.exceptions import DataError
 from PyNCBI.core.serialization import json_dumps
@@ -80,10 +79,10 @@ def test_query_filename_selection_agrees_across_public_apis(query_file, tmp_path
 
 def test_expression_and_direct_table_loading_preserve_the_same_cells(query_file):
     direct = read_supplementary_table(query_file)
-    resolved = load_expression("GSE1", prefer="supp").matrix_df
-    pd.testing.assert_frame_equal(resolved, direct)
-    assert direct.index.tolist() == ["0001", "NA"]
-    assert direct.iloc[0, 0] == float("0.12345678901234567")
+    resolved = load_expression("GSE1", prefer="supp").matrix
+    assert_equal(resolved, direct)
+    assert identifiers(direct) == ["0001", "NA"]
+    assert cell_at(direct, 0, 0) == float("0.12345678901234567")
 
 
 @pytest.mark.parametrize("route", ["download", "expression"])
@@ -95,7 +94,9 @@ def test_preflight_and_transfer_use_the_explicit_clients_budget(query_file, tmp_
         if route == "download":
             assert download_geo_files("GSE1", tmp_path, source="supp", http_client=client)
         else:
-            assert not load_expression("GSE1", prefer="supp", http_client=client).matrix_df.empty
+            assert not table_empty(
+                load_expression("GSE1", prefer="supp", http_client=client).matrix
+            )
 
 
 @pytest.mark.parametrize("body", [b"<html>missing file</html>", b"\x1f\x8btruncated"])
@@ -115,11 +116,11 @@ NA\tNA\tnull\t9007199254740995
 !dataset_table_end
 """.splitlines()
     )
-    assert result.table_df.index.tolist() == ["0001", "NA"]
-    assert result.table_df["IDENTIFIER"].tolist() == ["0007", "NA"]
-    assert result.table_df.loc["0001", "GSM1"] == float("0.12345678901234567")
-    assert pd.isna(result.table_df.loc["NA", "GSM1"])
-    assert result.table_df["GSM2"].tolist() == [9007199254740993, 9007199254740995]
+    assert identifiers(result.table) == ["0001", "NA"]
+    assert values(result.table, "IDENTIFIER") == ["0007", "NA"]
+    assert cell(result.table, "0001", "GSM1") == float("0.12345678901234567")
+    assert is_missing(cell(result.table, "NA", "GSM1"))
+    assert values(result.table, "GSM2") == [9007199254740993, 9007199254740995]
 
 
 def test_gds_does_not_silently_discard_malformed_measurements():
@@ -137,7 +138,7 @@ def test_table_entrypoints_preserve_literal_na_feature_ids(kind, tmp_path):
         frame = (
             SeriesMatrixParser()
             .parse("!series_matrix_table_begin\n" + table + "!series_matrix_table_end")
-            .matrix_df
+            .matrix
         )
     elif kind == "gsm":
         frame = SOFTParser().parse_gsm_data_table(
@@ -153,8 +154,8 @@ def test_table_entrypoints_preserve_literal_na_feature_ids(kind, tmp_path):
         path = tmp_path / name
         path.write_bytes(raw)
         frame = read_supplementary_table(path)
-    assert frame.index.tolist() == ["NA", "0001"]
-    assert frame.loc["NA", "GSM1"] == float("0.12345678901234567")
+    assert identifiers(frame) == ["NA", "0001"]
+    assert cell(frame, "NA", "GSM1") == float("0.12345678901234567")
 
 
 def test_study_exports_and_content_hash_share_strict_json_semantics(tmp_path):
@@ -162,7 +163,7 @@ def test_study_exports_and_content_hash_share_strict_json_semantics(tmp_path):
         gse_id="GSE1",
         extra={
             "missing": float("nan"),
-            "count": np.int64(9007199254740993),
+            "count": 9007199254740993,
             "value": 0.12345678901234567,
         },
     )

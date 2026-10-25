@@ -41,11 +41,7 @@ class _Parser(argparse.ArgumentParser):
 
 def _version_string() -> str:
     parts = [f"pyncbi {__version__}", f"Python {platform.python_version()}", platform.system()]
-    for mod in ("pandas", "numpy", "requests"):
-        try:
-            parts.append(f"{mod} {__import__(mod).__version__}")
-        except Exception:  # noqa: BLE001
-            continue
+    parts.append("stdlib only")
     return " | ".join(parts)
 
 
@@ -61,7 +57,7 @@ def _add_output_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-o",
         "--output",
-        help="Save output directly to a file (.csv, .tsv, .parquet, .json) or directory",
+        help="Save output directly to a file (.csv, .tsv, .json) or directory",
     )
     parser.add_argument(
         "--json",

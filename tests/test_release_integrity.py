@@ -9,11 +9,11 @@ import subprocess
 import sys
 import threading
 
-import pandas as pd
 import pytest
 import requests
 
 import PyNCBI
+from native_support import assert_equal, cell_at, fixture_table, identifiers, labels, values
 from PyNCBI.core.config import Config, reset_config
 from PyNCBI.core.exceptions import PyNCBIError
 from PyNCBI.core.formatter import render_output, save_data
@@ -32,25 +32,25 @@ def _strict_json(text):
 
 
 def test_cache_preserves_exact_floats_large_integers_and_nullable_columns(tmp_path):
-    frame = pd.DataFrame(
+    from datetime import datetime, timezone
+
+    frame = fixture_table(
         {
             "beta": [0.12345678901234567, float("nan")],
-            "count": pd.array([9007199254740993, None], dtype="Int64"),
-            "flag": pd.array([True, None], dtype="boolean"),
-            "label": pd.array(["0001234", None], dtype="string"),
-            "category": pd.Categorical(
-                ["case", "control"], categories=["control", "case"], ordered=True
-            ),
-            "date": pd.to_datetime(["2026-01-01", None], utc=True),
+            "count": [9007199254740993, None],
+            "flag": [True, None],
+            "label": ["0001234", None],
+            "category": ["case", "control"],
+            "date": [datetime(2026, 1, 1, tzinfo=timezone.utc), None],
         },
-        index=pd.Index(["0001234", "0005678"], name="probe"),
+        index=labels(["0001234", "0005678"], name="probe"),
     )
     cache = LocalCache(tmp_path)
-    cache.set("GSE1", {"data": frame, "series": frame["beta"]})
+    cache.set("GSE1", {"data": frame, "series": values(frame, "beta")})
     restored = cache.get("GSE1")
-    pd.testing.assert_frame_equal(restored["data"], frame, check_exact=True)
-    pd.testing.assert_series_equal(restored["series"], frame["beta"], check_exact=True)
-    assert restored["data"].iloc[0, 1] == 9007199254740993
+    assert_equal(restored["data"], frame)
+    assert_equal(restored["series"], values(frame, "beta"))
+    assert cell_at(restored["data"], 0, 1) == 9007199254740993
 
 
 def test_old_rounded_cache_is_a_miss_and_is_replaced(tmp_path):
@@ -63,21 +63,21 @@ def test_old_rounded_cache_is_a_miss_and_is_replaced(tmp_path):
     }
     cache._key_to_path("GSE1").write_bytes(gzip.compress(json.dumps(legacy).encode()))
     assert cache.get("GSE1") is None
-    cache.set("GSE1", pd.DataFrame({"GSM1": [0.12345678901234567]}))
-    assert cache.get("GSE1").iloc[0, 0] == 0.12345678901234567
+    cache.set("GSE1", fixture_table({"GSM1": [0.12345678901234566]}))
+    assert cell_at(cache.get("GSE1"), 0, 0) == 0.12345678901234567
 
 
 def test_json_table_export_retains_ids_and_full_precision_and_has_no_nan(tmp_path):
-    frame = pd.DataFrame(
-        {"GSM1": [0.12345678901234567, float("nan"), float("inf")]},
-        index=pd.Index(["0001234", "cg2", "cg3"], name="probe"),
+    frame = fixture_table(
+        {"GSM1": [0.12345678901234566, float("nan"), float("inf")]},
+        index=labels(["0001234", "cg2", "cg3"], name="probe"),
     )
     path = save_data(frame, tmp_path / "measurements.json")
-    rows = _strict_json(path.read_text(encoding="utf-8"))
-    assert rows[0] == {"probe": "0001234", "GSM1": 0.12345678901234567}
-    assert rows[1]["GSM1"] is None and rows[2]["GSM1"] is None
+    payload = _strict_json(path.read_text(encoding="utf-8"))
+    assert payload["columns"] == ["feature_id", "GSM1"]
+    assert payload["rows"] == [["0001234", 0.12345678901234567], ["cg2", None], ["cg3", None]]
     envelope = _strict_json(render_output(frame, mode="json"))
-    assert envelope["data"]["preview"][1]["GSM1"] is None
+    assert envelope["data"]["rows"][1][1] is None
 
 
 def test_numeric_feature_ids_keep_leading_zeros_in_every_table_path(tmp_path):
@@ -92,11 +92,11 @@ def test_numeric_feature_ids_keep_leading_zeros_in_every_table_path(tmp_path):
             + table
             + "!series_matrix_table_end\n"
         )
-        .matrix_df
+        .matrix
     )
     for frame in (supplementary, matrix):
-        assert list(frame.index) == ["0001234", "0005678"]
-        assert frame.iloc[0, 0] == 0.12345678901234567
+        assert list(identifiers(frame)) == ["0001234", "0005678"]
+        assert cell_at(frame, 0, 0) == 0.12345678901234567
 
 
 def test_budget_applies_to_matrix_exports_and_unknown_head_sizes(local_http, monkeypatch, tmp_path):
@@ -135,7 +135,7 @@ def test_environment_budget_also_applies_to_fastq_and_genome(local_http, monkeyp
     monkeypatch.setenv("PYNCBI_MAX_DOWNLOAD_MB", "0.001")
     reset_config()
     url = local_http.add("/suppl/SRR1.fastq.gz", b"x" * 4096)
-    manifest = pd.DataFrame(
+    manifest = fixture_table(
         {"file_url": [url], "file_name": ["SRR1.fastq.gz"], "md5": [""], "run_accession": ["SRR1"]}
     )
     with pytest.raises(PyNCBIError, match="max_download_mb"):

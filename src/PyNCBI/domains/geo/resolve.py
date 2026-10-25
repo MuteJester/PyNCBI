@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import NoDataAvailableError
 from PyNCBI.core.files import file_name, matches_file
+from PyNCBI.core.tables import by_id, iter_records
 from PyNCBI.core.types import validate_accession
 from PyNCBI.domains.geo.samples import (
     _apply_sample_filter,
@@ -58,25 +59,26 @@ def resolve_cohort_files(
     soft_parser = parser or get_parser()
 
     info_df, char_df = fetch_sample_tables(gse_id, http_client=client, parser=soft_parser)
-    if info_df.empty:
+    if not info_df["rows"]:
         raise NoDataAvailableError(gse_id)
 
     if where:
         matched = _apply_sample_filter(combine_sample_tables(info_df, char_df), where)
-        gsm_ids = [str(g) for g in matched.index]
+        gsm_ids = [str(record["gsm_id"]) for record in iter_records(matched)]
         if not gsm_ids:
             raise NoDataAvailableError(
                 gse_id,
-                detail=f"no samples matched filter '{where}' (0 of {len(info_df)})",
+                detail=f"no samples matched filter '{where}' (0 of {len(info_df['rows'])})",
             )
     else:
-        gsm_ids = [str(g) for g in info_df.index]
+        gsm_ids = [str(record["gsm_id"]) for record in iter_records(info_df)]
 
     resolved: list[CohortFile] = []
-    supp_cols = [c for c in info_df.columns if str(c).startswith("supplementary_file")]
+    lookup = by_id(info_df, "gsm_id")
+    supp_cols = [c for c in info_df["columns"] if str(c).startswith("supplementary_file")]
     for gsm in gsm_ids:
         for col in supp_cols:
-            for url in supplementary_urls(info_df.at[gsm, col]):
+            for url in supplementary_urls(lookup[gsm].get(col)):
                 fname = file_name(url)
                 if matches_file(url, pattern):
                     resolved.append(CohortFile(gsm_id=gsm, url=url, file_name=fname))

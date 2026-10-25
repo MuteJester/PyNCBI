@@ -1,8 +1,8 @@
 """GEO Series Matrix (`GSE*_series_matrix.txt.gz`) parser for PyNCBI.
 
 Parses NCBI GEO Series Matrix files into:
-1. `matrix_df`: The data matrix (rows = `ID_REF` / probes / genes, columns = `GSM` IDs)
-2. `samples_df`: Sample metadata and unpacked `!Sample_characteristics_ch1` fields
+1. `matrix`: The data matrix (rows = `ID_REF` / probes / genes, columns = `GSM` IDs)
+2. `sample_table`: Sample metadata and unpacked `!Sample_characteristics_ch1` fields
 3. `series_info`: Series-level metadata (`!Series_*`)
 """
 
@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+from typing import Any
 
-import pandas as pd
-
+from PyNCBI.core.tables import Table, from_records, table
 from PyNCBI.parsing.tabular import parse_delimited_table
 
 
@@ -21,17 +21,17 @@ class SeriesMatrixResult:
     """Parsed GEO Series Matrix content."""
 
     gse_id: str
-    series_info: pd.Series
-    samples_df: pd.DataFrame
-    characteristics_df: pd.DataFrame
-    matrix_df: pd.DataFrame
+    series_info: dict[str, Any]
+    sample_table: Table
+    characteristics_table: Table
+    matrix: Table
 
 
 class SeriesMatrixParser:
     """Parser for NCBI GEO Series Matrix text files."""
 
     def parse(self, text: str, gse_id: str = "") -> SeriesMatrixResult:
-        """Parse decompressed Series Matrix text into structured DataFrames."""
+        """Parse decompressed Series Matrix text into structured native tables."""
         series_meta: dict[str, list[str]] = {}
         sample_rows: list[tuple[str, list[str]]] = []
         table_lines: list[str] = []
@@ -73,15 +73,15 @@ class SeriesMatrixParser:
             acc_val = series_dict["geo_accession"]
             gse_id = acc_val if isinstance(acc_val, str) else acc_val[0]
 
-        samples_df, char_df = self._build_sample_tables(sample_rows)
-        matrix_df = self._build_matrix_df(table_lines)
+        sample_table, char_df = self._build_sample_tables(sample_rows)
+        matrix = self._build_matrix(table_lines)
 
         return SeriesMatrixResult(
             gse_id=gse_id,
-            series_info=pd.Series(series_dict),
-            samples_df=samples_df,
-            characteristics_df=char_df,
-            matrix_df=matrix_df,
+            series_info=series_dict,
+            sample_table=sample_table,
+            characteristics_table=char_df,
+            matrix=matrix,
         )
 
     @staticmethod
@@ -91,11 +91,9 @@ class SeriesMatrixParser:
             return val[1:-1]
         return val
 
-    def _build_sample_tables(
-        self, sample_rows: list[tuple[str, list[str]]]
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def _build_sample_tables(self, sample_rows: list[tuple[str, list[str]]]) -> tuple[Table, Table]:
         if not sample_rows:
-            return pd.DataFrame(), pd.DataFrame()
+            return table(), table()
 
         # Find sample geo_accession row to determine GSM IDs and sample count
         gsm_ids: list[str] = []
@@ -133,19 +131,16 @@ class SeriesMatrixParser:
                 else:
                     meta_per_sample[idx][key] = val
 
-        index = pd.Index(gsm_ids, name="gsm_id")
-        samples_df = pd.DataFrame(meta_per_sample, index=index)
-        char_df = pd.DataFrame(char_per_sample, index=index)
-        return samples_df, char_df
+        return (
+            from_records(
+                {"gsm_id": gsm, **row} for gsm, row in zip(gsm_ids, meta_per_sample, strict=True)
+            ),
+            from_records(
+                {"gsm_id": gsm, **row} for gsm, row in zip(gsm_ids, char_per_sample, strict=True)
+            ),
+        )
 
-    def _build_matrix_df(self, table_lines: list[str]) -> pd.DataFrame:
-        if len(table_lines) < 2:
-            return pd.DataFrame()
-
-        try:
-            df = parse_delimited_table("\n".join(table_lines), "series_matrix.tsv")
-            df.index.name = "probe"
-            df.columns = [str(c).strip('"') for c in df.columns]
-            return df
-        except Exception:
-            return pd.DataFrame()
+    def _build_matrix(self, table_lines: list[str]) -> Table:
+        if not table_lines:
+            return table()
+        return parse_delimited_table("\n".join(table_lines), "series_matrix.tsv")

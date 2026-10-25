@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
-from PyNCBI.core.formatter import render_output, save_data, summarize_characteristics_df
+from PyNCBI.core.formatter import render_output, save_data, summarize_characteristics
+from PyNCBI.core.tables import Table, from_records, iter_records
 from PyNCBI.core.types import FetchMode, validate_accession
 from PyNCBI.domains.geo import (
     download_geo_files,
@@ -101,42 +100,34 @@ class GSE:
         return self._gsms
 
     @property
-    def info(self) -> pd.Series:
-        """Series metadata as a pandas Series."""
-        return self._state.info if self._state.info is not None else pd.Series(dtype=object)
+    def info(self) -> dict[str, Any]:
+        """Series metadata as a dictionary."""
+        return self._state.info if self._state.info is not None else {}
 
     @info.setter
-    def info(self, value: pd.Series | None) -> None:
-        self._state.info = value if value is not None else pd.Series(dtype=object)
+    def info(self, value: dict[str, Any] | None) -> None:
+        self._state.info = value if value is not None else {}
 
     @property
-    def samples_df(self) -> pd.DataFrame:
-        """DataFrame of all samples in the GSE with metadata and unpacked characteristics."""
-        if self._state.samples_df is not None and not self._state.samples_df.empty:
-            return self._state.samples_df
-        if self._gsms:
-            all_info = [self._gsms[g].info for g in self._gsms]
-            df = pd.DataFrame(pd.concat(all_info, axis=1).T)
-            df.index.name = "gsm_id"
-            return df
-        return pd.DataFrame()
+    def sample_table(self) -> Table:
+        """native table of all samples in the GSE with metadata and unpacked characteristics."""
+        if self._state.sample_table["rows"]:
+            return self._state.sample_table
+        return from_records({"gsm_id": gsm, **sample.info} for gsm, sample in self._gsms.items())
 
     @property
-    def characteristics_df(self) -> pd.DataFrame:
-        """DataFrame of unpacked ``key: value`` sample characteristics (rows = GSMs)."""
-        if self._state.characteristics_df is not None and not self._state.characteristics_df.empty:
-            return self._state.characteristics_df
-        if self._gsms:
-            rows = {g: self._gsms[g].characteristics.to_dict() for g in self._gsms}
-            df = pd.DataFrame.from_dict(rows, orient="index")
-            df.index.name = "gsm_id"
-            return df
-        return pd.DataFrame()
+    def characteristics_table(self) -> Table:
+        """Native sample characteristics, with explicit GSM identifiers."""
+        if self._state.characteristics_table["rows"]:
+            return self._state.characteristics_table
+        return from_records(
+            {"gsm_id": gsm, **sample.characteristics} for gsm, sample in self._gsms.items()
+        )
 
     @property
     def characteristics_summary(self) -> list[CharacteristicSummary]:
         """Structured breakdown of sample characteristics across the cohort."""
-        return summarize_characteristics_df(self.characteristics_df)
+        return summarize_characteristics(self.characteristics_table)
 
     @property
     def supplementary_files(self) -> list[str]:
@@ -220,20 +211,20 @@ class GSE:
             parser=self._parser,
         )
 
-    def load_series_matrix(self, save_to: str | Path | None = None) -> pd.DataFrame:
+    def load_series_matrix(self, save_to: str | Path | None = None) -> Table:
         """Download and parse the GEO Series Matrix table for this GSE."""
         res = load_series_matrix(
             self._state.gse_id,
             save_to=save_to,
             http_client=self._http_client,
         )
-        return res.matrix_df
+        return res.matrix
 
     def load_rnaseq_counts(
         self,
         count_type: str = "raw_counts",
         save_to: str | Path | None = None,
-    ) -> pd.DataFrame:
+    ) -> Table:
         """Download and parse NCBI-generated RNA-seq counts for this GSE."""
         return load_rnaseq_counts(
             self._state.gse_id,
@@ -242,21 +233,26 @@ class GSE:
             http_client=self._http_client,
         )
 
-    def to_dataframe(self, section: str = "data") -> pd.DataFrame:
-        """Export GSE metadata, characteristics, or sample data matrix as a DataFrame."""
+    def to_table(self, section: str = "data") -> Table:
+        """Export GSE metadata, characteristics, or sample data matrix as a native table."""
         sec = section.lower().strip()
         if sec == "info":
-            all_info = [self._gsms[gsm].info for gsm in self._gsms]
-            return pd.concat(all_info, axis=1) if all_info else pd.DataFrame()
+            return from_records(
+                {"gsm_id": gsm, **sample.info} for gsm, sample in self._gsms.items()
+            )
         if sec == "characteristics":
-            return self.characteristics_df
+            return self.characteristics_table
         if sec == "samples":
-            return self.samples_df
+            return self.sample_table
         if sec == "data":
             self._sync_samples()
             return sample_matrix(self._state)
 
         raise ValueError("section must be 'info', 'characteristics', 'samples', or 'data'")
+
+    def to_records(self, section: str = "data") -> list[dict[str, Any]]:
+        """Return row dictionaries for callers that prefer record-oriented data."""
+        return list(iter_records(self.to_table(section)))
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize GSE summary and sample characteristics breakdown to a dictionary."""
@@ -275,7 +271,7 @@ class GSE:
 
     def save(self, output_path: str | Path, section: str = "samples") -> Path:
         """Save GSE table (`samples`, `characteristics`, `info`, or `data`) to disk."""
-        df = self.to_dataframe(section=section)
+        df = self.to_table(section=section)
         return save_data(df, output_path)
 
     def is_cached(self) -> bool:
@@ -312,7 +308,7 @@ class GSE:
     def _sync_samples(self) -> None:
         self._state.samples = {g: sample._state for g, sample in self._gsms.items()}
 
-    def _match_columns_to_gsms(self, data: pd.DataFrame) -> None:
+    def _match_columns_to_gsms(self, data: Table) -> None:
         self._sync_samples()
         assign_matrix(self._state, data, "provided")
 

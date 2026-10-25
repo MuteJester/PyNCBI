@@ -118,8 +118,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --all                 Return every match (paginates through NCBI; use with
                            -o for large result sets)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -146,8 +146,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -h, --help            show this help message and exit
      --no-sizes            Skip HTTP HEAD file size checks
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -184,8 +184,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            summary
      --max-rows MAX_ROWS   Max preview rows in terminal (default 15)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -217,8 +217,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --pattern PATTERN     Filename glob filter for supplementary files
      -n ROWS, --rows ROWS  Number of preview rows (default 8)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -244,8 +244,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -h, --help            show this help message and exit
      --no-sizes            Skip HTTP HEAD file size checks
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -296,8 +296,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            '*.txt.gz')
      --unpack              Safely extract .tar archives and gunzip .gz files
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -332,8 +332,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            Export citations as BibTeX or RIS (prints to stdout;
                            with -o refs.bib/.ris writes the file)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -361,8 +361,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -n LIMIT, --limit LIMIT
                            Max matches per query (default 5)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -390,8 +390,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            Max SRA experiments to query (default 200)
      --max-rows MAX_ROWS   Max rows to display in terminal (default 20)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -421,8 +421,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --start START         Optional 1-based sequence start coordinate
      --stop STOP           Optional 1-based sequence stop coordinate
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -446,8 +446,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
    options:
      -h, --help            show this help message and exit
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -482,8 +482,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            .annot.gz)
      --max-rows MAX_ROWS   Max rows to display in terminal (default 10)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -518,8 +518,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -n LIMIT, --limit LIMIT
                            Max ClinVar variants (default 20)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -554,8 +554,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -n LIMIT, --limit LIMIT
                            Max ClinVar variants (default 20)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -591,8 +591,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --subseries           For a SuperSeries: also build one bundle per SubSeries
                            under subseries/<GSE>/
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -620,8 +620,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -n LIMIT, --limit LIMIT
                            Max matches per name query (default 5)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -657,8 +657,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            Operation byte budget in MB; 0 disables
      --no-disk-check       Skip free-space checks
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -703,8 +703,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -n LIMIT, --limit LIMIT
                            Max assemblies (default 10)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -738,8 +738,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            Operation byte budget in MB; 0 disables
      --no-disk-check       Skip free-space checks
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -767,8 +767,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            columns
      --max-rows MAX_ROWS   Max rows to display in terminal (default 10)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -801,8 +801,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
                            only)
      --max-rows MAX_ROWS   Max samples in Markdown/text views (default 15)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -828,8 +828,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
    options:
      -h, --help            show this help message and exit
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -872,8 +872,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --workers WORKERS     Parallel workers for per-sample sources (default 4)
      --max-rows MAX_ROWS   Rows to show in terminal/JSON preview (default 8)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -913,8 +913,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --no-sizes            Skip HTTP HEAD size checks (faster, no download_bytes)
      --workers WORKERS     Studies screened in parallel (default 4)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -962,8 +962,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --timeout TIMEOUT     Give up waiting after this many seconds (default 900)
      --max-rows MAX_ROWS   Max hits to show in terminal (default 20)
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -989,8 +989,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      -h, --help            show this help message and exit
      --pattern PATTERN     Glob pattern when clearing cache (default '*')
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored
@@ -1031,8 +1031,8 @@ Generated from the ``pyncbi`` argparse definition. Every command supports ``--js
      --offline             Skip live network probes and only report local
                            configuration, cache, and telemetry
      -o OUTPUT, --output OUTPUT
-                           Save output directly to a file (.csv, .tsv, .parquet,
-                           .json) or directory
+                           Save output directly to a file (.csv, .tsv, .json) or
+                           directory
      --json                Format terminal output as an agent-friendly JSON
                            envelope
      --markdown, --md      Format terminal output as clean GitHub-Flavored

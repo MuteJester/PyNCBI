@@ -7,18 +7,17 @@ import json
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
+from PyNCBI.core.tables import is_table
 from PyNCBI.core.types import GSEInfo
-from PyNCBI.domains.geo.records import SampleFailure, SampleState, SeriesState
+from PyNCBI.domains.geo.records import SampleFailure, SampleState, SeriesState, sample_data
 
 if TYPE_CHECKING:
     from PyNCBI.core.protocols import Cache
 
-_VERSION = 1
+_VERSION = 2
 
 
-def sample_payload(sample: SampleState, data: bool) -> dict[str, Any]:
+def sample_payload(sample: SampleState, data: bool, *, materialize: bool = True) -> dict[str, Any]:
     return {
         "gsm_id": sample.gsm_id,
         "info": sample.info,
@@ -26,7 +25,8 @@ def sample_payload(sample: SampleState, data: bool) -> dict[str, Any]:
         "platform_id": sample.platform_id,
         "gse_id": sample.gse_id,
         "supplementary_files": sample.supplementary_files,
-        "data": sample.data if data else None,
+        "data": (sample_data(sample) if materialize else sample.data) if data else None,
+        "matrix_column": sample.matrix_column if data and not materialize else "",
         "source": sample.source if data else "metadata",
         "source_url": sample.source_url if data else "",
     }
@@ -37,9 +37,11 @@ def series_payload(series: SeriesState, data: bool) -> dict[str, Any]:
         "gse_id": series.gse_id,
         "info": series.info,
         "details": asdict(series.details),
-        "samples_df": series.samples_df,
-        "characteristics_df": series.characteristics_df,
-        "samples": {g: sample_payload(s, data) for g, s in series.samples.items()},
+        "sample_table": series.sample_table,
+        "characteristics_table": series.characteristics_table,
+        "samples": {
+            g: sample_payload(s, data, materialize=False) for g, s in series.samples.items()
+        },
         "failures": [asdict(f) for f in series.failures if data or f.stage == "metadata"],
         "matrix": series.matrix if data else None,
         "source": series.source if data else "metadata",
@@ -47,35 +49,39 @@ def series_payload(series: SeriesState, data: bool) -> dict[str, Any]:
 
 
 def restore_sample(payload: dict[str, Any]) -> SampleState:
-    if not isinstance(payload.get("info"), pd.Series) or not isinstance(
-        payload.get("characteristics"), pd.Series
+    if not isinstance(payload.get("info"), dict) or not isinstance(
+        payload.get("characteristics"), dict
     ):
         raise ValueError("Invalid sample snapshot")
-    if payload.get("data") is not None and not isinstance(
-        payload["data"], (pd.Series, pd.DataFrame)
-    ):
+    if payload.get("data") is not None and not is_table(payload["data"]):
         raise ValueError("Invalid cached sample data")
     return SampleState(**payload)
 
 
 def restore_series(payload: dict[str, Any]) -> SeriesState:
-    if not isinstance(payload.get("info"), pd.Series) or not all(
-        isinstance(payload.get(key), pd.DataFrame) for key in ("samples_df", "characteristics_df")
+    if not isinstance(payload.get("info"), dict) or not all(
+        is_table(payload.get(key)) for key in ("sample_table", "characteristics_table")
     ):
         raise ValueError("Invalid series snapshot")
-    if payload.get("matrix") is not None and not isinstance(payload["matrix"], pd.DataFrame):
+    if payload.get("matrix") is not None and not is_table(payload["matrix"]):
         raise ValueError("Invalid cached matrix")
-    return SeriesState(
+    state = SeriesState(
         gse_id=payload["gse_id"],
         info=payload["info"],
         details=GSEInfo(**payload["details"]),
-        samples_df=payload["samples_df"],
-        characteristics_df=payload["characteristics_df"],
+        sample_table=payload["sample_table"],
+        characteristics_table=payload["characteristics_table"],
         samples={g: restore_sample(s) for g, s in payload["samples"].items()},
         failures=[SampleFailure(**f) for f in payload["failures"]],
         matrix=payload["matrix"],
         source=payload["source"],
     )
+    for sample in state.samples.values():
+        if sample.matrix_column:
+            if state.matrix is None or sample.matrix_column not in state.matrix["columns"]:
+                raise ValueError("Invalid cached sample matrix reference")
+            sample._matrix = state.matrix
+    return state
 
 
 class EntityCache:

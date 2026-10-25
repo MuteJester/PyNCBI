@@ -18,16 +18,16 @@ samples, pubmed, sra, files) into a single self-contained local study directory:
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
 from PyNCBI.core.serialization import json_dumps
+from PyNCBI.core.tables import Table, column
 from PyNCBI.core.types import validate_accession
 from PyNCBI.domains.entrez import fetch_pubmed, fetch_sra_runs
 from PyNCBI.domains.geo import (
@@ -39,6 +39,7 @@ from PyNCBI.domains.geo import (
 from PyNCBI.domains.literature import METHODS_SECTIONS, attach_full_text
 from PyNCBI.io.http_client import get_default_client
 from PyNCBI.io.transfer_limits import ContextThreadPoolExecutor as ThreadPoolExecutor
+from PyNCBI.parsing.tabular import measurement
 
 if TYPE_CHECKING:
     from PyNCBI.core.models import CharacteristicSummary, InspectionReport, PubMedArticle
@@ -124,8 +125,8 @@ def _write_overview(
     *,
     report: InspectionReport,
     summaries: list[CharacteristicSummary],
-    samples_df: pd.DataFrame,
-    sra_df: pd.DataFrame | None,
+    sample_table: Table,
+    sra_df: Table | None,
     articles: list[PubMedArticle],
     bundle: StudyBundle,
     where: str | None,
@@ -144,7 +145,11 @@ def _write_overview(
         L.append(f"- **Platform(s):** {', '.join(report.platforms)}")
     L.append(
         f"- **Samples:** {report.sample_count}"
-        + (f" (bundle filtered with `{where}`: {len(samples_df)} samples)" if where else "")
+        + (
+            f" (bundle filtered with `{where}`: {len(sample_table['rows'])} samples)"
+            if where
+            else ""
+        )
     )
     if report.superseries_id:
         L.append(f"- **SuperSeries:** {report.superseries_id}")
@@ -168,7 +173,7 @@ def _write_overview(
     if report.overall_design:
         L += ["", "## Overall Design", report.overall_design]
 
-    L += ["", f"## Cohort Characteristics ({len(samples_df)} samples)"]
+    L += ["", f"## Cohort Characteristics ({len(sample_table['rows'])} samples)"]
     L += _char_table(summaries)
     L.append("")
     L.append("Full per-sample table: `samples_metadata.csv`")
@@ -201,20 +206,26 @@ def _write_overview(
     else:
         L.append("_No downloadable files were found on the series record._")
 
-    if sra_df is not None and not sra_df.empty:
-        n = len(sra_df)
+    if sra_df is not None and sra_df["rows"]:
+        n = len(sra_df["rows"])
         layout = (
-            ", ".join(f"{k} ({v})" for k, v in sra_df["LibraryLayout"].value_counts().items())
-            if "LibraryLayout" in sra_df
+            ", ".join(f"{k} ({v})" for k, v in Counter(column(sra_df, "LibraryLayout")).items())
+            if "LibraryLayout" in sra_df["columns"]
             else ""
         )
         strat = (
-            ", ".join(f"{k} ({v})" for k, v in sra_df["LibraryStrategy"].value_counts().items())
-            if "LibraryStrategy" in sra_df
+            ", ".join(f"{k} ({v})" for k, v in Counter(column(sra_df, "LibraryStrategy")).items())
+            if "LibraryStrategy" in sra_df["columns"]
             else ""
         )
         size_mb = (
-            pd.to_numeric(sra_df["size_MB"], errors="coerce").sum() if "size_MB" in sra_df else 0
+            sum(
+                number
+                for value in column(sra_df, "size_MB")
+                if isinstance(number := measurement(str(value)), (int, float))
+            )
+            if "size_MB" in sra_df["columns"]
+            else 0
         )
         L += ["", f"## SRA Sequencing Runs ({n} runs)"]
         if strat:
@@ -353,15 +364,15 @@ def build_study_bundle(
             include_sample_breakdown=False,
             http_client=client,
         )
-        samples_df, _char_df, summaries = extract_gse_samples(
+        sample_table, _char_df, summaries = extract_gse_samples(
             gse_id, where=where, http_client=client
         )
         report.characteristics_summary = summaries
         bundle.report = report
-        bundle.sample_count = len(samples_df)
+        bundle.sample_count = len(sample_table["rows"])
         bundle.pubmed_ids = list(report.pubmed_ids)
         task.step(
-            f"Series + {len(samples_df)} samples resolved; fetching literature/SRA in parallel"
+            f"Series + {len(sample_table['rows'])} samples resolved; fetching literature/SRA in parallel"
         )
         if report.subseries_ids:
             bundle.warnings.append(
@@ -390,7 +401,7 @@ def build_study_bundle(
         # 2. Independent enrichment steps in parallel
         sra_term = _sra_search_term(report) if include_sra else ""
         articles: list[PubMedArticle] = []
-        sra_df: pd.DataFrame | None = None
+        sra_df: Table | None = None
 
         def _pubmed() -> list[PubMedArticle]:
             arts = fetch_pubmed(report.pubmed_ids, http_client=client) if report.pubmed_ids else []
@@ -398,7 +409,7 @@ def build_study_bundle(
                 attach_full_text(arts, sections=METHODS_SECTIONS, http_client=client)
             return arts
 
-        def _sra() -> pd.DataFrame:
+        def _sra() -> Table:
             return fetch_sra_runs(sra_term, limit=500, http_client=client)
 
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -427,11 +438,11 @@ def build_study_bundle(
 
         # 3. Write tables
         bundle.files["samples"] = (
-            save_data(samples_df, out / "samples_metadata.csv")
-            if not samples_df.empty
+            save_data(sample_table, out / "samples_metadata.csv")
+            if sample_table["rows"]
             else out / "samples_metadata.csv"
         )
-        if samples_df.empty:
+        if not sample_table["rows"]:
             bundle.files["samples"].write_text("", encoding="utf-8")
         # Versioned study record layout: harmonized samples, provenance, quality, checksummed manifest
         try:
@@ -457,9 +468,9 @@ def build_study_bundle(
         bundle.files["manifest"] = save_data(
             [f.to_dict() for f in report.files], out / "files_manifest.json"
         )
-        if sra_df is not None and not sra_df.empty:
-            bundle.files["sra"] = save_data(sra_df.reset_index(drop=True), out / "sra_runs.csv")
-            bundle.sra_run_count = len(sra_df)
+        if sra_df is not None and sra_df["rows"]:
+            bundle.files["sra"] = save_data(sra_df, out / "sra_runs.csv")
+            bundle.sra_run_count = len(sra_df["rows"])
         if articles:
             bundle.files["pubmed"] = save_data(
                 [a.to_dict() for a in articles], out / "pubmed_articles.json"
@@ -487,7 +498,7 @@ def build_study_bundle(
                 else:
                     target = out / f"{gse_id}_series_matrix.csv"
                     res = load_series_matrix(gse_id, save_to=target, http_client=client)
-                    if res.matrix_df.empty:
+                    if not res.matrix["rows"]:
                         bundle.warnings.append(
                             "Series Matrix contains no data rows (sequencing study?); use --source rnaseq/supp"
                         )
@@ -509,7 +520,7 @@ def build_study_bundle(
             overview_path,
             report=report,
             summaries=summaries,
-            samples_df=samples_df,
+            sample_table=sample_table,
             sra_df=sra_df,
             articles=articles,
             bundle=bundle,

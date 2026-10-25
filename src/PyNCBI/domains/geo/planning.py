@@ -241,7 +241,7 @@ def plan_geo_download(
     elif accession.startswith("GSM"):
         supp_urls = soft_parser.parse_gsm(soft_text, accession).supplementary_files
     else:
-        raw_s = soft_parser.parse_gpl_to_series(soft_text).get("supplementary_file", [])
+        raw_s = soft_parser.parse_gpl_record(soft_text).get("supplementary_file", [])
         supp_urls = [raw_s] if isinstance(raw_s, str) else list(raw_s)
     if not supp_urls:
         return DownloadPlan(

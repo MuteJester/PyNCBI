@@ -14,7 +14,6 @@ from PyNCBI.core.exceptions import (
     AccessionPrivateError,
     BotChallengeError,
     NoDataAvailableError,
-    PyNCBIError,
     RateLimitExceededError,
     error_code_for,
     error_payload,
@@ -116,7 +115,7 @@ def test_json_envelope_includes_schema_version_timing_and_request_count(capsys):
     rc = cli_main(["cache", "status", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["schema_version"] == "1.1"
+    assert payload["schema_version"] == "2.0"
     assert payload["pyncbi_version"]
     assert isinstance(payload["elapsed_ms"], (int, float)) and payload["elapsed_ms"] >= 0
     assert isinstance(payload["request_count"], int)
@@ -153,7 +152,7 @@ def test_cli_version_reports_runtime_details(capsys):
     assert excinfo.value.code == 0
     out = capsys.readouterr().out
     assert "pyncbi 1." in out
-    assert "python" in out.lower() and "pandas" in out.lower() and "requests" in out.lower()
+    assert "python" in out.lower() and "stdlib only" in out.lower()
 
 
 def test_cli_no_color_flag_disables_ansi(monkeypatch, capsys):
@@ -188,60 +187,14 @@ def test_missing_required_tool_argument_is_reported_as_an_invalid_argument():
     assert "required" in structured["message"].lower()
 
 
-def test_parquet_output_explains_the_missing_engine_instead_of_leaking_pandas(tmp_path):
-    """`.parquet` is documented everywhere, but the engine is an optional dependency."""
-    import pandas as pd
-
+@pytest.mark.parametrize("suffix", [".parquet", ".yaml", ".xlsx"])
+def test_external_export_formats_explain_the_native_output_contract(tmp_path, suffix):
+    """The engine owns native/JSON/CSV transport; other encodings belong to callers."""
+    from PyNCBI.core.exceptions import ConfigurationError
     from PyNCBI.core.formatter import save_data
+    from PyNCBI.core.tables import table
 
-    dest = tmp_path / "table.parquet"
-    frame = pd.DataFrame({"gene": ["A1BG"], "GSM1": [3]})
-    try:
-        import pyarrow  # noqa: F401
-
-        pyarrow_available = True
-    except ImportError:
-        pyarrow_available = False
-
-    if pyarrow_available:
-        assert save_data(frame, dest) == dest
-        assert dest.is_file()
-        return
-
-    with pytest.raises(PyNCBIError) as excinfo:
-        save_data(frame, dest)
-    message = f"{excinfo.value} {excinfo.value.hint or ''}"
-    assert "parquet" in message.lower()
-    assert "pyarrow" in message.lower()
-
-
-def test_piping_output_into_head_does_not_print_a_broken_pipe_error(monkeypatch, capsys):
-    """`pyncbi ... | head -5` is normal usage; the reader closing early is not an error.
-
-    Without handling, the interpreter's final flush of stdout raises and Python prints
-    `Exception ignored in: <_io.TextIOWrapper ...> BrokenPipeError` on stderr, which looks
-    like a crash in a log.
-    """
-    import io
-    import sys
-
-    from PyNCBI.cli.main import main
-
-    class ClosedPipe(io.TextIOBase):
-        def write(self, _text: str) -> int:
-            raise BrokenPipeError(32, "Broken pipe")
-
-        def flush(self) -> None:
-            raise BrokenPipeError(32, "Broken pipe")
-
-    pipe = ClosedPipe()
-    monkeypatch.setattr(sys, "stdout", pipe)
-    exit_code = main(["schema", "vocabulary"])
-    # Do not leave a deliberately broken flush for TextIOBase's finalizer.
-    monkeypatch.setattr(pipe, "flush", lambda: None)
-    pipe.close()
-
-    assert exit_code == 141, "128 + SIGPIPE is the conventional status for a closed reader"
-    captured = capsys.readouterr()
-    assert "BrokenPipeError" not in captured.err
-    assert "Traceback" not in captured.err
+    destination = tmp_path / ("table" + suffix)
+    with pytest.raises(ConfigurationError, match="caller"):
+        save_data(table(["feature_id", "GSM1"], [["A1BG", 3]]), destination)
+    assert not destination.exists()

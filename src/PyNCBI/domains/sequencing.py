@@ -14,12 +14,11 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.config import get_config
 from PyNCBI.core.exceptions import DownloadError, NoDataAvailableError
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import Table, column, from_records, is_table, iter_records
 from PyNCBI.core.types import validate_accession
 from PyNCBI.io.http_client import format_size_human, get_default_client
 from PyNCBI.io.transfer_limits import bounded_transfer
@@ -80,7 +79,7 @@ def _to_int(val: Any) -> int | None:
         return None
 
 
-def parse_ena_file_report(rows: list[dict[str, Any]]) -> pd.DataFrame:
+def parse_ena_file_report(rows: list[dict[str, Any]]) -> Table:
     """Expand ENA `read_run` file-report rows into one row per FASTQ file."""
     out: list[dict[str, Any]] = []
     for row in rows:
@@ -123,10 +122,7 @@ def parse_ena_file_report(rows: list[dict[str, Any]]) -> pd.DataFrame:
                     "study_accession": row.get("study_accession", ""),
                 }
             )
-    df = pd.DataFrame(out, columns=list(FASTQ_COLUMNS))
-    if not df.empty:
-        df["size_bytes"] = pd.to_numeric(df["size_bytes"], errors="coerce").astype("Int64")
-    return df
+    return from_records(out, FASTQ_COLUMNS)
 
 
 def _ena_file_report(accession: str, client: HttpClient) -> list[dict[str, Any]]:
@@ -162,10 +158,10 @@ def _resolve_ena_accessions(accession: str, client: HttpClient) -> list[str]:
             from PyNCBI.domains.entrez import fetch_sra_runs
 
             runs = fetch_sra_runs(m.group(1), limit=None, http_client=client)
-            if "BioProject" in runs.columns and runs["BioProject"].notna().any():
-                return [str(runs["BioProject"].dropna().iloc[0])]
-            if "Run" in runs.columns:
-                return [str(r) for r in runs["Run"].tolist()]
+            if "BioProject" in runs["columns"] and any(column(runs, "BioProject")):
+                return [str(next(value for value in column(runs, "BioProject") if value))]
+            if "Run" in runs["columns"]:
+                return [str(r) for r in column(runs, "Run")]
         raise NoDataAvailableError(acc, "no BioProject / SRA study linked to this series")
     if acc.startswith("GSM"):
         from PyNCBI.domains.geo import inspect_accession
@@ -181,9 +177,9 @@ def _resolve_ena_accessions(accession: str, client: HttpClient) -> list[str]:
         from PyNCBI.domains.entrez import fetch_sra_runs
 
         runs = fetch_sra_runs(acc, limit=None, http_client=client)
-        if "BioProject" in runs.columns and runs["BioProject"].notna().any():
-            return [str(runs["BioProject"].dropna().iloc[0])]
-        return [str(r) for r in runs.get("Run", pd.Series(dtype=str)).tolist()]
+        if "BioProject" in runs["columns"] and any(column(runs, "BioProject")):
+            return [str(next(value for value in column(runs, "BioProject") if value))]
+        return [str(r) for r in (column(runs, "Run") if "Run" in runs["columns"] else [])]
     if _ENA_DIRECT_RE.match(acc):
         return [acc]
     raise ValueError(
@@ -196,16 +192,16 @@ def fetch_fastq_urls(
     *,
     save_to: str | Path | None = None,
     http_client: HttpClient | None = None,
-) -> pd.DataFrame:
+) -> Table:
     """Resolve an accession to its FASTQ files (one row per file) via the ENA mirror.
 
     Args:
         accession: GSE, GSM, PRJNA/PRJEB, SRP/ERP, SRX, SRS, SAMN, or SRR/ERR accession
-        save_to: Optional path (.csv/.tsv/.json/.parquet) to save the manifest
+        save_to: Optional path (.csv/.tsv/.json) to save the manifest
         http_client: Optional HTTP client
 
     Returns:
-        DataFrame with `run_accession`, `sample_alias` (GSM when submitted via GEO),
+        Native table with `run_accession`, `sample_alias` (GSM when submitted via GEO),
         `file_name`, `file_url` (HTTPS), `size_bytes`, `md5`, `read_index`, layout, strategy,
         instrument, read/base counts, and linked sample/experiment/study accessions.
     """
@@ -226,14 +222,18 @@ def fetch_fastq_urls(
             rows = _ena_file_report(target, client)
             if rows:
                 frames.append(parse_ena_file_report(rows))
-        df = pd.concat(frames, ignore_index=True) if frames else parse_ena_file_report([])
-        if not df.empty:
-            df = df.drop_duplicates(subset=["file_url"]).reset_index(drop=True)
-        if save_to is not None and not df.empty:
+        seen = set()
+        records = []
+        for value in frames:
+            for record in iter_records(value):
+                if record["file_url"] not in seen:
+                    records.append(record)
+                    seen.add(record["file_url"])
+        df = from_records(records, FASTQ_COLUMNS)
+        if save_to is not None:
             save_data(df, save_to)
-            task.step(f"Saved FASTQ manifest to {save_to}")
-        total = int(df["size_bytes"].fillna(0).sum()) if not df.empty else 0
-        task.complete(f"{len(df)} FASTQ file(s) for {acc} ({format_size_human(total)})")
+        total = sum(record.get("size_bytes") or 0 for record in records)
+        task.complete(f"{len(records)} FASTQ file(s) for {acc} ({format_size_human(total)})")
         return df
 
 
@@ -247,7 +247,7 @@ def _md5_of(path: Path, chunk_size: int = 1 << 20) -> str:
 
 @bounded_transfer
 def download_fastq(
-    accession_or_manifest: str | pd.DataFrame,
+    accession_or_manifest: str | Table,
     output_dir: str | Path | None = None,
     *,
     runs: list[str] | None = None,
@@ -260,7 +260,7 @@ def download_fastq(
     """Download FASTQ files (parallel, resumable, MD5-verified) for an accession or manifest.
 
     Args:
-        accession_or_manifest: Accession accepted by `fetch_fastq_urls`, or its DataFrame
+        accession_or_manifest: Accession accepted by `fetch_fastq_urls`, or its native table
         output_dir: Destination folder (default `./<accession>_fastq`)
         runs: Optional subset of run accessions (SRR...) to download
         max_workers: Parallel transfers (default 4)
@@ -273,7 +273,7 @@ def download_fastq(
     from PyNCBI.domains.geo import download_urls_parallel
 
     client = http_client or get_default_client()
-    if isinstance(accession_or_manifest, pd.DataFrame):
+    if is_table(accession_or_manifest):
         manifest = accession_or_manifest
         label = "fastq"
     else:
@@ -281,16 +281,23 @@ def download_fastq(
         manifest = fetch_fastq_urls(label, http_client=client)
     if runs:
         wanted = {r.strip().upper() for r in runs}
-        manifest = manifest[manifest["run_accession"].str.upper().isin(wanted)]
-    if manifest.empty:
+        manifest = from_records(
+            (
+                record
+                for record in iter_records(manifest)
+                if str(record["run_accession"]).upper() in wanted
+            ),
+            manifest["columns"],
+        )
+    if not manifest["rows"]:
         raise NoDataAvailableError(label, "no FASTQ files to download")
 
     target = Path(output_dir) if output_dir else Path.cwd() / f"{label}_fastq"
-    urls = [str(u) for u in manifest["file_url"].tolist()]
+    urls = [str(u) for u in column(manifest, "file_url")]
     paths = download_urls_parallel(client, urls, target, max_workers=max_workers)
 
     if verify_md5:
-        expected = dict(zip(manifest["file_name"], manifest["md5"], strict=False))
+        expected = {record["file_name"]: record.get("md5", "") for record in iter_records(manifest)}
         mismatched: list[str] = []
         for path in paths:
             want = str(expected.get(path.name, "") or "").lower()

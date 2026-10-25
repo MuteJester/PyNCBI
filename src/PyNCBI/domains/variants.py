@@ -290,7 +290,7 @@ def search_clinvar(
             'benign', 'uncertain significance', ...)
         gene: Optional gene symbol restriction (for free-text queries)
         limit: Maximum number of variants (default 20)
-        save_to: Optional path (.csv, .tsv, .json, .parquet) to save the records
+        save_to: Optional path (.csv, .tsv, .json) to save the records
         http_client: Optional HTTP client
     """
     client = http_client or get_default_client()

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PyNCBI.core.config import get_config
-from PyNCBI.core.exceptions import DownloadError, NoDataAvailableError
+from PyNCBI.core.exceptions import ConfigurationError, DownloadError, NoDataAvailableError
 from PyNCBI.core.formatter import save_data
 from PyNCBI.core.reporter import get_reporter
 from PyNCBI.core.types import COMPRESSED_OUTPUT_SUFFIXES, DataStatus, validate_accession
@@ -161,13 +161,22 @@ def download_geo_files(
         List of downloaded (and optionally unpacked) local file Paths
     """
     accession = validate_accession(accession)
+    if (
+        output_dir
+        and Path(output_dir).suffix.lower() in (".parquet", ".yaml", ".yml", ".xlsx", ".feather")
+        and not (Path(output_dir).suffix.lower() == ".parquet" and source.lower().strip() == "supp")
+    ):
+        raise ConfigurationError(
+            "Export tables as JSON, CSV or TSV and convert them with your chosen library; "
+            "use source='supp' to download original Parquet bytes"
+        )
     client = http_client or get_default_client()
     soft_parser = parser or get_parser()
     cfg = get_config()
 
     if accession.startswith("GDS"):
         dest_root = Path(output_dir) if output_dir else Path.cwd() / accession
-        is_file = dest_root.suffix.lower() in (".csv", ".tsv", ".txt", ".parquet", ".json")
+        is_file = dest_root.suffix.lower() in (".csv", ".tsv", ".txt", ".json")
         out_file = dest_root if is_file else dest_root / f"{accession}_table.csv"
         load_gds(accession, save_to=out_file, http_client=client)
         return [out_file]
@@ -203,8 +212,8 @@ def download_geo_files(
     dest_root = Path(output_dir) if output_dir else Path.cwd() / accession
     # A destination may name a folder to fill, a table to write, or a raw file to save as-is.
     # `.tsv.gz` has suffix `.gz`, so compressed names are matched on the whole filename.
-    is_table_target = dest_root.suffix.lower() in (".csv", ".tsv", ".txt", ".parquet", ".json")
-    is_raw_target = dest_root.name.lower().endswith(COMPRESSED_OUTPUT_SUFFIXES)
+    is_table_target = dest_root.suffix.lower() in (".csv", ".tsv", ".txt", ".json")
+    is_raw_target = dest_root.name.lower().endswith((*COMPRESSED_OUTPUT_SUFFIXES, ".parquet"))
     is_file_target = is_table_target
     target_folder = dest_root.parent if (is_table_target or is_raw_target) else dest_root
     target_folder.mkdir(parents=True, exist_ok=True)
@@ -248,7 +257,7 @@ def download_geo_files(
             res = load_series_matrix(
                 accession, save_to=out_file, annotate=annotate, http_client=client
             )
-            if not res.matrix_df.empty:
+            if res.matrix["rows"]:
                 saved_paths.append(out_file)
                 return saved_paths
         matrix_url = cfg.get_series_matrix_url(accession)
@@ -357,7 +366,7 @@ def download_geo_files(
         )
         supp_urls = sample_metadata.supplementary_files
     else:
-        gpl_s = soft_parser.parse_gpl_to_series(soft_text)
+        gpl_s = soft_parser.parse_gpl_record(soft_text)
         raw_s = gpl_s.get("supplementary_file", [])
         supp_urls = [raw_s] if isinstance(raw_s, str) else list(raw_s)
 

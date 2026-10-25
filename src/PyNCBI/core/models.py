@@ -817,7 +817,7 @@ class AgentEnvelope:
     saved_files: list[str] = field(default_factory=list)
     next_steps: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    schema_version: str = "1.1"
+    schema_version: str = "2.0"
     pyncbi_version: str = ""
     elapsed_ms: float | None = None
     request_count: int | None = None

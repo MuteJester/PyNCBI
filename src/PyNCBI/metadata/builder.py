@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
 from PyNCBI.core.reporter import get_reporter
+from PyNCBI.core.tables import from_records, iter_records
 from PyNCBI.core.types import validate_accession
 from PyNCBI.domains.geo import extract_gse_samples, inspect_accession
 from PyNCBI.io.http_client import get_default_client
@@ -45,7 +45,7 @@ _LINK_KEYS = {
 
 
 def _first(value: Any) -> str:
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    if value is None or (isinstance(value, float) and math.isnan(value)):
         return ""
     return str(value).split("\n")[0].strip()
 
@@ -68,9 +68,9 @@ def _sample_links(relation_blob: Any, gse_id: str) -> dict[str, str]:
     return links
 
 
-def _sample_supp_files(row: pd.Series) -> list[str]:
+def _sample_supp_files(row: dict[str, Any]) -> list[str]:
     urls: list[str] = []
-    for col in row.index:
+    for col in row:
         if str(col).startswith("supplementary_file"):
             urls.extend(supplementary_urls(row[col]))
     return urls
@@ -120,17 +120,19 @@ def build_study_record(
             http_client=client,
         )
         combined_df, char_df, _ = extract_gse_samples(gse_id, where=where, http_client=client)
-        task.step(f"{len(combined_df)} sample(s) retrieved; harmonizing characteristics")
+        task.step(f"{len(combined_df['rows'])} sample(s) retrieved; harmonizing characteristics")
 
         samples: list[SampleRecord] = []
-        char_rows: dict[str, dict[str, str]] = {}
-        if not char_df.empty:
-            for char_key, char_row in char_df.iterrows():
-                char_rows[str(char_key)] = {
-                    str(k): str(v) for k, v in char_row.items() if pd.notna(v) and str(v) != ""
-                }
-        for gsm_key, row in combined_df.iterrows():
-            gsm_id = str(gsm_key)
+        char_rows = {
+            str(row["gsm_id"]): {
+                key: str(value)
+                for key, value in row.items()
+                if key != "gsm_id" and value is not None and str(value) != ""
+            }
+            for row in iter_records(char_df)
+        }
+        for row in iter_records(combined_df):
+            gsm_id = str(row["gsm_id"])
             chars = char_rows.get(gsm_id, {})
             raw_count = _first(row.get("data_row_count", "0")) or "0"
             samples.append(
@@ -189,9 +191,12 @@ def build_study_record(
         if where:
             record.extra["cohort_filter"] = where
         if harmonize:
-            kept = [s.gsm_id for s in samples if s.gsm_id in char_df.index]
-            subset = char_df.loc[kept] if (not char_df.empty and kept) else char_df
-            table = harmonize_characteristics(pd.DataFrame(subset))
+            selected_ids = {sample.gsm_id for sample in samples}
+            subset = from_records(
+                (row for row in iter_records(char_df) if row["gsm_id"] in selected_ids),
+                char_df["columns"],
+            )
+            table = harmonize_characteristics(subset)
             record.harmonization = table.summary()
 
         for kind in kinds:
@@ -261,15 +266,15 @@ def _enrich_sra(record: StudyRecord, client: HttpClient) -> None:
     if not term:
         return
     runs = fetch_sra_runs(term, limit=None, http_client=client)
-    if runs.empty or "SampleName" not in runs.columns:
+    if not runs["rows"] or "SampleName" not in runs["columns"]:
         return
     by_gsm: dict[str, list[str]] = {}
-    for _, r in runs.iterrows():
+    for r in iter_records(runs):
         by_gsm.setdefault(str(r.get("SampleName", "")), []).append(str(r.get("Run", "")))
     for sample in record.samples:
         if sample.gsm_id in by_gsm:
             sample.links["sra_runs"] = ",".join(by_gsm[sample.gsm_id])
-    record.extra["sra_run_count"] = int(len(runs))
+    record.extra["sra_run_count"] = len(runs["rows"])
 
 
 def _enrich_pubmed(record: StudyRecord, client: HttpClient) -> None:

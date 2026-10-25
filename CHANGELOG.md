@@ -12,6 +12,23 @@ realm-aware rate limiting; `inspect_accession`, `extract_gse_samples`, `preview_
 `download_geo_files`, Series Matrix / RNA-seq loaders, Entrez search, PubMed, Gene, SRA, FASTA, and the
 agent skill — plus everything below.
 
+### Changed
+- **Zero runtime dependencies**: the engine, CLI and MCP server use only Python's standard
+  library. HTTP uses `urllib` with system TLS verification, cookies, redirects and the shared
+  rate-limit, retry, cache and transfer-budget policies. Test, documentation and build tools
+  remain development extras.
+- **Native data contract**: parsed tables are ordinary `{"columns": [...], "rows": [...]}`
+  dictionaries; metadata is dictionaries and lists. IDs stay strings, integer counts stay
+  exact beside missing values, and measurements use Python floats. Built-in exports are
+  JSON, CSV and TSV; callers own DataFrame, YAML, Parquet and spreadsheet conversion.
+- **Streaming records**: `iter_supplementary_records` reads local or remote delimited files
+  incrementally under the same transfer budget. GSE/GSM objects share one loaded matrix;
+  individual sample tables are projected only when requested.
+- **Breaking pre-1.0 API update**: table methods and properties use native names such as
+  `matrix`, `sample_table` and `to_table`; no DataFrame compatibility layer remains. Agent
+  envelopes use schema version `2.0`. Legacy table caches are invalidated. See the
+  [migration guide](docs/source/migration.rst) for the full mapping.
+
 ### Added
 - **Isolated sessions** (`PyNCBI.Session`, `config_scope`, `derive_config`): per-workflow API key, email,
   cache directory, download budget, timeout, audit log, rate limiters, metadata store and telemetry. Every
@@ -20,8 +37,8 @@ agent skill — plus everything below.
 - **HTTP response cache**: identical metadata responses (GEO `acc.cgi`, E-Utilities, Datasets, ENA) are
   reused for `Config.http_cache_ttl` seconds (env `PYNCBI_HTTP_CACHE_TTL`, default 300, 0 disables), with
   per-client LRU bounds, hit/miss telemetry in `client.metrics.summary()` and `clear_response_cache()`.
-  BLAST polling, file bodies, byte ranges and streams are never cached. Measured effect on a three-step
-  GSE152418 workflow: 9 requests and 7.7 s down to 4 requests and 3.1 s.
+  BLAST polling, file bodies, byte ranges and streams are never cached. Repeated metadata
+  calls within the same client reuse the cached response.
 - **MCP schema integrity**: every tool now declares the agent envelope as its `outputSchema`,
   `ncbi_samples` always carries that envelope, `mcp_manifest()` / `pyncbi schema mcp` print the whole
   agent contract, and `PyNCBI.mcp.validation` checks the schemas structurally and proves (from the
@@ -30,7 +47,7 @@ agent skill — plus everything below.
   `pyncbi blast`, MCP `ncbi_blast`): the asynchronous BLAST URL API lifecycle handled end to end -
   submit, poll (with a 10-second floor against NCBI and a dedicated `blast` rate-limiter realm), fetch
   and parse into `BlastHit` records (accession, title, bit score, E-value, percent identity, coverage)
-  plus a hits DataFrame; `wait=False` / `--rid` / `rid=` let callers avoid long blocking calls, and a
+  plus a native hits table; `wait=False` / `--rid` / `rid=` let callers avoid long blocking calls, and a
   timeout always names the RID so a job is never lost.
 - **Full MCP protocol surface**: behaviour annotations on all tools (`readOnlyHint`, `destructiveHint`,
   `idempotentHint`, `openWorldHint`), `structuredContent` on every tool result (success and error),
