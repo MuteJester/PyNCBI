@@ -207,3 +207,12 @@ def test_http_encoding_redirects_and_cookies_stay_client_owned(coding):
         server.shutdown()
         server.server_close()
         worker.join()
+
+
+def test_unsupported_remote_format_is_rejected_before_transfer(local_http):
+    from PyNCBI import read_supplementary_table
+
+    url = local_http.add("/large.parquet", b"caller-owned format")
+    with pytest.raises(DataError, match="Parquet decoding belongs to the caller"):
+        read_supplementary_table(url)
+    assert local_http.hits == []

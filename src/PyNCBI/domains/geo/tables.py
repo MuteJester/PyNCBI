@@ -73,7 +73,7 @@ def load_gds(
             task.step(f"Saved GDS table to {save_to}")
         rows, cols = len(result.table["rows"]), len(result.table["columns"])
         task.complete(
-            f"{gds_id}: {rows:,} features x {cols - 1 if cols else 0} samples, {len(result.subsets)} subset(s)"
+            f"{gds_id}: {rows:,} features x {cols:,} fields, {len(result.subsets)} subset(s)"
         )
         return result
 
@@ -149,7 +149,7 @@ def load_series_matrix(
             task.step(f"Saved Series Matrix table to {save_to}")
 
         rows, cols = len(result.matrix["rows"]), len(result.matrix["columns"])
-        task.complete(f"Loaded Series Matrix for {gse_id}: {rows:,} features x {cols:,} samples")
+        task.complete(f"Loaded Series Matrix for {gse_id}: {rows:,} features x {cols:,} fields")
         return result
 
 
@@ -216,9 +216,7 @@ def load_rnaseq_counts(
             task.step(f"Saved RNA-seq count matrix to {save_to}")
 
         rows, cols = len(df["rows"]), len(df["columns"])
-        task.complete(
-            f"Loaded RNA-seq count matrix for {gse_id}: {rows:,} genes x {cols:,} samples"
-        )
+        task.complete(f"Loaded RNA-seq count matrix for {gse_id}: {rows:,} genes x {cols:,} fields")
         return df
 
 
@@ -236,12 +234,12 @@ def read_supplementary_table(
     path_str = str(url_or_path)
 
     if path_str.startswith(("http://", "https://", "ftp://")):
-        raw = client.get_bytes(path_str)
         fname = file_name(path_str).lower()
         if fname.endswith(".parquet"):
             raise DataError(
                 "Parquet decoding belongs to the caller; download the original file instead"
             )
+        raw = client.get_bytes(path_str)
         text = decompress_table_bytes(raw, context=fname or "supplementary table")
         return parse_delimited_table(text, fname)
 
