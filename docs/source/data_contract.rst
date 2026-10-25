@@ -12,6 +12,9 @@ A mixed numeric column containing missing or fractional values may require a flo
 dtype; values outside that dtype's exact range are not arbitrary precision integers.
 
 Feature identifiers are read as text, including leading zeros and numeric-looking IDs.
+Literal identifiers such as ``NA`` and ``null`` remain text. Missing-value markers
+(``NA``, ``N/A``, ``NaN``, ``null``, ``None`` and empty cells) apply to measurement
+columns; GDS annotation columns retain their original text.
 PyNCBI does not normalize or impute measurements. Optional annotation adds columns;
 metadata harmonization affects descriptive sample fields, with the raw values preserved.
 

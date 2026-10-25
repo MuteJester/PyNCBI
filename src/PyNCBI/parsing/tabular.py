@@ -14,6 +14,31 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
+# Missing measurements are distinct from literal feature IDs and annotation text.
+# Keep this policy explicit: pandas 3.1 applies its default NA inference even
+# after string converters, unlike earlier supported versions.
+_MISSING_MEASUREMENTS = (
+    "",
+    "NA",
+    "N/A",
+    "NaN",
+    "nan",
+    "null",
+    "NULL",
+    "None",
+    "#N/A",
+    "#NA",
+    "#N/A N/A",
+    "n/a",
+    "<NA>",
+    "-NaN",
+    "-nan",
+    "1.#IND",
+    "-1.#IND",
+    "1.#QNAN",
+    "-1.#QNAN",
+)
+
 
 def parse_delimited_table(
     text: str, filename: str, *, text_columns: Sequence[str] = (), keep_id_column: bool = False
@@ -42,11 +67,16 @@ def read_delimited_table(
         if name.endswith(".csv") or ".csv." in name or header.count(",") > header.count("\t")
         else "\t"
     )
+    columns = pd.read_csv(source, sep=sep, nrows=0, comment="!", keep_default_na=False).columns
+    if isinstance(source, StringIO):
+        source.seek(0)
     frame = pd.read_csv(
         source,
         sep=sep,
         low_memory=False,
         comment="!",
+        keep_default_na=False,
+        na_values={name: _MISSING_MEASUREMENTS for name in columns[1:] if name not in text_columns},
         **table_read_options(text_columns=text_columns),
     )
     # Setting the index during read_csv re-applies NA inference to its values,
