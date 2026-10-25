@@ -54,6 +54,7 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+docs/build/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -95,3 +96,5 @@ Thumbs.db
 
 # Project specific
 /TestGround.py
+/.private/
+.private/

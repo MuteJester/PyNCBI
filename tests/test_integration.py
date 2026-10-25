@@ -37,9 +37,7 @@ class TestGSMIntegration:
         assert gsm.gse.startswith("GSE")
 
         # Should NOT have data (shell_only=True)
-        assert gsm.data is None or (
-            isinstance(gsm.data, str) and "Only Info" in gsm.data
-        )
+        assert gsm.data is None or (isinstance(gsm.data, str) and "Only Info" in gsm.data)
 
     def test_gsm_fetches_full_data(self):
         """Test that GSM fetches methylation data correctly."""
@@ -149,8 +147,8 @@ class TestExceptionHandling:
 
     def test_invalid_accession_format(self):
         """Test that malformed accession raises InvalidAccessionError."""
-        from PyNCBI._types import validate_accession
-        from PyNCBI.exceptions import InvalidAccessionError
+        from PyNCBI.core.exceptions import InvalidAccessionError
+        from PyNCBI.core.types import validate_accession
 
         with pytest.raises(InvalidAccessionError):
             validate_accession("INVALID", "GSM")
@@ -171,7 +169,7 @@ class TestExceptionHandling:
 
     def test_invalid_mode_error(self):
         """Test that invalid fetch mode raises InvalidModeError."""
-        from PyNCBI._types import FetchMode
+        from PyNCBI.core.types import FetchMode
 
         with pytest.raises(ValueError, match="Invalid mode"):
             FetchMode.from_string("invalid_mode")

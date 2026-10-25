@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use PyNCBI in your research, please cite it as below."
+title: "PyNCBI: Programmatic & agent-ready access to NCBI (GEO, Entrez, PubMed, SRA, ClinVar, Datasets)"
+type: software
+authors:
+  - family-names: Konstantinovsky
+    given-names: Thomas
+    email: thomaskon90@gmail.com
+version: 1.0.0
+license: MIT
+repository-code: https://github.com/MuteJester/PyNCBI
+url: https://pyncbi.readthedocs.io/
+keywords:
+  - ncbi
+  - geo
+  - entrez
+  - pubmed
+  - sra
+  - bioinformatics
+  - mcp
+  - ai-agents

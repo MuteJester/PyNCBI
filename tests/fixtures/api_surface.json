@@ -1,0 +1,3986 @@
+{
+  "PyNCBI": {
+    "__all__": [
+      "AccessionNotFoundError",
+      "AccessionPrivateError",
+      "ActivityEvent",
+      "ActivityReporter",
+      "AgentEnvelope",
+      "AssemblyRecord",
+      "BioProjectRecord",
+      "BioSampleRecord",
+      "BlastHit",
+      "BlastJob",
+      "BlastResult",
+      "BotChallengeError",
+      "ByteProgressTracker",
+      "CacheCorruptedError",
+      "CacheError",
+      "CacheNotFoundError",
+      "CacheWriteError",
+      "CharacteristicSummary",
+      "ClientMetrics",
+      "ClinVarRecord",
+      "Config",
+      "ConfigurationError",
+      "ConnectionFailedError",
+      "DataError",
+      "DataProcessingError",
+      "DataStatus",
+      "DbSNPRecord",
+      "DownloadError",
+      "DownloadPlan",
+      "ExpressionResult",
+      "FASTASequence",
+      "FetchMode",
+      "FilePreview",
+      "FirstFileSelector",
+      "GEOReader",
+      "GEOSearchHit",
+      "GSE",
+      "GSEInfo",
+      "GSM",
+      "GSMInfo",
+      "GeneRecord",
+      "GenomeDownloadResult",
+      "HTTPError",
+      "HarmonizedTable",
+      "HttpClient",
+      "HttpClientConfig",
+      "IndexFileSelector",
+      "InspectionReport",
+      "InvalidAPIKeyError",
+      "InvalidAccessionError",
+      "InvalidModeError",
+      "LogLevel",
+      "MetadataStore",
+      "NCBIClient",
+      "NCBIClientConfig",
+      "NCBIFileInfo",
+      "NCBIRealmLimiter",
+      "NetworkError",
+      "NoDataAvailableError",
+      "NormalizedValue",
+      "NucleotideRecord",
+      "PMCFullText",
+      "PMCSection",
+      "ParseError",
+      "PathTraversalError",
+      "PatternFileSelector",
+      "PubMedArticle",
+      "PyNCBIError",
+      "QualityReport",
+      "RateLimitExceededError",
+      "RequestEvent",
+      "RequestTimeoutError",
+      "SCHEMA_VERSION",
+      "SOFTParseError",
+      "SampleRecord",
+      "ScreeningResult",
+      "Session",
+      "SmartFileSelector",
+      "StudyBundle",
+      "StudyRecord",
+      "SymlinkError",
+      "TaskScope",
+      "TaxonRecord",
+      "TokenBucketLimiter",
+      "Verbosity",
+      "__author__",
+      "__version__",
+      "annotate_gene_ids",
+      "annotate_probes",
+      "assess_study",
+      "attach_full_text",
+      "blast",
+      "build_study_bundle",
+      "build_study_record",
+      "check_blast",
+      "config_scope",
+      "configure_logging",
+      "delete_blast",
+      "derive_config",
+      "download_fastq",
+      "download_genome",
+      "download_geo_files",
+      "download_many",
+      "error_code_for",
+      "error_payload",
+      "esearch_ids",
+      "esummary_docs",
+      "export_citations",
+      "extract_gse_samples",
+      "fetch_assembly",
+      "fetch_bioprojects",
+      "fetch_biosamples",
+      "fetch_blast",
+      "fetch_clinvar",
+      "fetch_dbsnp",
+      "fetch_fasta",
+      "fetch_fastq_urls",
+      "fetch_genes",
+      "fetch_gpl_table",
+      "fetch_pmc_text",
+      "fetch_pubmed",
+      "fetch_sra_runs",
+      "fetch_taxonomy",
+      "fetch_variants",
+      "format_dataframe_preview",
+      "get_client",
+      "get_config",
+      "get_default_client",
+      "get_logger",
+      "get_reporter",
+      "gse_of_gsm",
+      "harmonize_characteristics",
+      "harmonize_sample",
+      "inspect_accession",
+      "is_retryable",
+      "json_schema",
+      "link_accession",
+      "load_expression",
+      "load_gds",
+      "load_rnaseq_annotation",
+      "load_rnaseq_counts",
+      "load_series_matrix",
+      "load_study_record",
+      "log_level",
+      "map_columns_to_gsms",
+      "parse_blast_xml",
+      "parse_characteristics",
+      "plan_geo_download",
+      "platform_of_gsm",
+      "preview_geo_file",
+      "read_supplementary_table",
+      "redact_url",
+      "render_output",
+      "reset_config",
+      "resolve_cohort_files",
+      "resolve_pmc_id",
+      "save_data",
+      "save_study_record",
+      "screen_studies",
+      "search_assemblies",
+      "search_clinvar",
+      "search_gene",
+      "search_geo",
+      "search_ncbi",
+      "search_pubmed",
+      "search_taxonomy",
+      "set_config",
+      "set_level",
+      "silence",
+      "submit_blast",
+      "summarize_characteristics_df",
+      "to_bibtex",
+      "to_ris",
+      "validate_accession",
+      "verbose",
+      "verbosity_scope",
+      "vocabulary"
+    ],
+    "members": {
+      "AccessionNotFoundError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "accession",
+          "detail="
+        ]
+      },
+      "AccessionPrivateError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "accession",
+          "detail="
+        ]
+      },
+      "ActivityEvent": {
+        "kind": "class",
+        "members": [
+          "current",
+          "domain",
+          "elapsed_ms",
+          "message",
+          "metadata",
+          "operation",
+          "phase",
+          "target",
+          "timestamp",
+          "to_dict",
+          "total"
+        ],
+        "params": [
+          "phase",
+          "domain",
+          "operation",
+          "message",
+          "target=",
+          "current=",
+          "total=",
+          "elapsed_ms=",
+          "timestamp=",
+          "metadata="
+        ]
+      },
+      "ActivityReporter": {
+        "kind": "class",
+        "members": [
+          "clear_events",
+          "done",
+          "download_bar",
+          "recent_events",
+          "set_verbosity",
+          "should_show_progress_bar",
+          "step",
+          "subscribe",
+          "task",
+          "track",
+          "verbosity",
+          "warn"
+        ],
+        "params": [
+          "verbosity="
+        ]
+      },
+      "AgentEnvelope": {
+        "kind": "class",
+        "members": [
+          "command",
+          "data",
+          "elapsed_ms",
+          "next_steps",
+          "ok",
+          "pyncbi_version",
+          "request_count",
+          "saved_files",
+          "schema_version",
+          "summary",
+          "target",
+          "to_dict",
+          "to_json",
+          "warnings"
+        ],
+        "params": [
+          "ok",
+          "command",
+          "target",
+          "summary",
+          "data",
+          "saved_files=",
+          "next_steps=",
+          "warnings=",
+          "schema_version=",
+          "pyncbi_version=",
+          "elapsed_ms=",
+          "request_count="
+        ]
+      },
+      "AssemblyRecord": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "annotation_date",
+          "annotation_name",
+          "assembly_level",
+          "assembly_name",
+          "assembly_status",
+          "assembly_type",
+          "bioproject",
+          "biosample",
+          "chromosome_count",
+          "contig_n50",
+          "gc_percent",
+          "gene_count",
+          "organism",
+          "paired_accession",
+          "protein_coding_count",
+          "refseq_category",
+          "release_date",
+          "scaffold_n50",
+          "source_db",
+          "strain",
+          "submitter",
+          "taxid",
+          "to_dict",
+          "total_length",
+          "url"
+        ],
+        "params": [
+          "accession",
+          "paired_accession=",
+          "organism=",
+          "taxid=",
+          "strain=",
+          "assembly_name=",
+          "assembly_level=",
+          "assembly_status=",
+          "assembly_type=",
+          "refseq_category=",
+          "source_db=",
+          "release_date=",
+          "submitter=",
+          "bioproject=",
+          "biosample=",
+          "total_length=",
+          "contig_n50=",
+          "scaffold_n50=",
+          "chromosome_count=",
+          "gc_percent=",
+          "annotation_name=",
+          "annotation_date=",
+          "gene_count=",
+          "protein_coding_count="
+        ]
+      },
+      "BioProjectRecord": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "data_type",
+          "description",
+          "method",
+          "name",
+          "organism",
+          "project_type",
+          "registration_date",
+          "relevance",
+          "target_material",
+          "target_scope",
+          "taxid",
+          "title",
+          "to_dict",
+          "uid",
+          "url"
+        ],
+        "params": [
+          "accession",
+          "uid=",
+          "title=",
+          "name=",
+          "description=",
+          "project_type=",
+          "data_type=",
+          "target_scope=",
+          "target_material=",
+          "method=",
+          "organism=",
+          "taxid=",
+          "registration_date=",
+          "relevance="
+        ]
+      },
+      "BioSampleRecord": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "attributes",
+          "gsm_id",
+          "identifiers",
+          "organism",
+          "owner",
+          "package",
+          "publication_date",
+          "sra_sample",
+          "taxid",
+          "title",
+          "to_dict",
+          "uid",
+          "url"
+        ],
+        "params": [
+          "accession",
+          "uid=",
+          "title=",
+          "organism=",
+          "taxid=",
+          "package=",
+          "publication_date=",
+          "owner=",
+          "gsm_id=",
+          "sra_sample=",
+          "attributes=",
+          "identifiers="
+        ]
+      },
+      "BlastHit": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "align_len",
+          "bit_score",
+          "evalue",
+          "gaps",
+          "hit_frame",
+          "hit_from",
+          "hit_id",
+          "hit_num",
+          "hit_to",
+          "hsp_count",
+          "identity",
+          "length",
+          "percent_identity",
+          "query_coverage",
+          "query_frame",
+          "query_from",
+          "query_to",
+          "score",
+          "title",
+          "to_dict"
+        ],
+        "params": [
+          "hit_num",
+          "accession=",
+          "hit_id=",
+          "title=",
+          "length=",
+          "bit_score=",
+          "score=",
+          "evalue=",
+          "identity=",
+          "align_len=",
+          "gaps=",
+          "query_from=",
+          "query_to=",
+          "hit_from=",
+          "hit_to=",
+          "query_frame=",
+          "hit_frame=",
+          "hsp_count="
+        ]
+      },
+      "BlastJob": {
+        "kind": "class",
+        "members": [
+          "database",
+          "estimated_seconds",
+          "is_ready",
+          "message",
+          "program",
+          "rid",
+          "status",
+          "submitted_at",
+          "there_are_hits",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "url"
+        ],
+        "params": [
+          "rid",
+          "program=",
+          "database=",
+          "status=",
+          "there_are_hits=",
+          "estimated_seconds=",
+          "submitted_at=",
+          "message="
+        ]
+      },
+      "BlastResult": {
+        "kind": "class",
+        "members": [
+          "database",
+          "hit_count",
+          "hits",
+          "hits_df",
+          "program",
+          "query_def",
+          "query_id",
+          "query_len",
+          "rid",
+          "saved_path",
+          "stats",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "version"
+        ],
+        "params": [
+          "rid=",
+          "program=",
+          "version=",
+          "database=",
+          "query_id=",
+          "query_def=",
+          "query_len=",
+          "hits=",
+          "stats=",
+          "saved_path="
+        ]
+      },
+      "BotChallengeError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "url",
+          "detail="
+        ]
+      },
+      "ByteProgressTracker": {
+        "kind": "class",
+        "members": [
+          "close",
+          "current_bytes",
+          "set_current",
+          "update"
+        ],
+        "params": [
+          "reporter",
+          "description",
+          "total_bytes=",
+          "initial_bytes="
+        ]
+      },
+      "CacheCorruptedError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "path",
+          "cause="
+        ]
+      },
+      "CacheError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "message",
+          "hint="
+        ]
+      },
+      "CacheNotFoundError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "key"
+        ]
+      },
+      "CacheWriteError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "path",
+          "cause="
+        ]
+      },
+      "CharacteristicSummary": {
+        "kind": "class",
+        "members": [
+          "dtype",
+          "format_brief",
+          "name",
+          "non_null_count",
+          "numeric_stats",
+          "to_dict",
+          "total_count",
+          "unique_count",
+          "value_counts"
+        ],
+        "params": [
+          "name",
+          "dtype",
+          "non_null_count",
+          "total_count",
+          "unique_count",
+          "value_counts=",
+          "numeric_stats="
+        ]
+      },
+      "ClientMetrics": {
+        "kind": "class",
+        "members": [
+          "attach_cache",
+          "record",
+          "record_cache_hit",
+          "record_retry",
+          "reset",
+          "summary"
+        ],
+        "params": [
+          "max_recent=",
+          "audit_path="
+        ]
+      },
+      "ClinVarRecord": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "canonical_spdi",
+          "cdna_change",
+          "clinical_impact",
+          "clinical_significance",
+          "condition_xrefs",
+          "conditions",
+          "gene_id",
+          "gene_symbol",
+          "grch37",
+          "grch38",
+          "last_evaluated",
+          "molecular_consequences",
+          "oncogenicity",
+          "protein_change",
+          "review_stars",
+          "review_status",
+          "rsid",
+          "submission_count",
+          "title",
+          "to_dict",
+          "url",
+          "variant_type",
+          "variation_id"
+        ],
+        "params": [
+          "variation_id",
+          "accession=",
+          "title=",
+          "gene_symbol=",
+          "gene_id=",
+          "variant_type=",
+          "cdna_change=",
+          "protein_change=",
+          "molecular_consequences=",
+          "clinical_significance=",
+          "review_status=",
+          "review_stars=",
+          "last_evaluated=",
+          "conditions=",
+          "condition_xrefs=",
+          "rsid=",
+          "canonical_spdi=",
+          "grch38=",
+          "grch37=",
+          "oncogenicity=",
+          "clinical_impact=",
+          "submission_count="
+        ]
+      },
+      "Config": {
+        "kind": "class",
+        "members": [
+          "ENA_PORTAL_API_URL",
+          "NCBI_BATCH_GSM_URL_TEMPLATE",
+          "NCBI_BLAST_URL",
+          "NCBI_DATASETS_BASE_URL",
+          "NCBI_DATA_URL_TEMPLATE",
+          "NCBI_EUTILS_BASE_URL",
+          "NCBI_FTP_HTTPS_BASE",
+          "NCBI_GEO_DOWNLOAD_URL",
+          "NCBI_QUERY_BASE_URL",
+          "NCBI_QUERY_URL",
+          "NCBI_QUERY_URL_TEMPLATE",
+          "agent_mode",
+          "api_key",
+          "audit_log_path",
+          "cache_folder",
+          "downloads_folder",
+          "effective_rate_limit",
+          "email",
+          "ensure_cache_dir",
+          "ftp_rate_limit_per_sec",
+          "geo_rate_limit_per_sec",
+          "get_gds_soft_url",
+          "get_ncbi_batch_gsm_url",
+          "get_ncbi_data_url",
+          "get_ncbi_query_url",
+          "get_series_matrix_url",
+          "http_cache_ttl",
+          "local_downloads_folder",
+          "max_download_mb",
+          "max_retries",
+          "rate_limit_per_sec",
+          "request_timeout",
+          "retry_backoff"
+        ],
+        "params": [
+          "cache_folder=",
+          "downloads_folder=",
+          "request_timeout=",
+          "max_retries=",
+          "retry_backoff=",
+          "api_key=",
+          "email=",
+          "rate_limit_per_sec=",
+          "geo_rate_limit_per_sec=",
+          "ftp_rate_limit_per_sec=",
+          "agent_mode=",
+          "max_download_mb=",
+          "http_cache_ttl=",
+          "audit_log_path="
+        ]
+      },
+      "ConfigurationError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "message",
+          "hint="
+        ]
+      },
+      "ConnectionFailedError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "url",
+          "cause="
+        ]
+      },
+      "DataError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "message",
+          "hint="
+        ]
+      },
+      "DataProcessingError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "accession",
+          "step",
+          "detail="
+        ]
+      },
+      "DataStatus": {
+        "kind": "class",
+        "members": [
+          "DATA_ON_PAGE",
+          "NO_DATA",
+          "SUPPLEMENTARY_FILES"
+        ],
+        "params": [
+          "value"
+        ]
+      },
+      "DbSNPRecord": {
+        "kind": "class",
+        "members": [
+          "allele_frequencies",
+          "alt_alleles",
+          "chromosome",
+          "clinical_significance",
+          "functional_class",
+          "gene_ids",
+          "gene_symbols",
+          "hgvs",
+          "position_grch37",
+          "position_grch38",
+          "protein_change",
+          "ref_allele",
+          "rsid",
+          "spdi",
+          "to_dict",
+          "url",
+          "validated"
+        ],
+        "params": [
+          "rsid",
+          "chromosome=",
+          "position_grch38=",
+          "position_grch37=",
+          "spdi=",
+          "ref_allele=",
+          "alt_alleles=",
+          "gene_symbols=",
+          "gene_ids=",
+          "functional_class=",
+          "clinical_significance=",
+          "hgvs=",
+          "protein_change=",
+          "allele_frequencies=",
+          "validated="
+        ]
+      },
+      "DownloadError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "url",
+          "reason",
+          "completed_paths="
+        ]
+      },
+      "DownloadPlan": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "destination",
+          "file_count",
+          "files",
+          "fits_on_disk",
+          "free_bytes",
+          "notes",
+          "source",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "total_bytes",
+          "total_human"
+        ],
+        "params": [
+          "accession",
+          "destination",
+          "source",
+          "files=",
+          "total_bytes=",
+          "free_bytes=",
+          "notes="
+        ]
+      },
+      "ExpressionResult": {
+        "kind": "class",
+        "members": [
+          "candidates",
+          "column_mapping",
+          "gse_id",
+          "matrix_df",
+          "notes",
+          "samples_df",
+          "saved_path",
+          "shape",
+          "source",
+          "source_file",
+          "source_url",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "gse_id",
+          "source",
+          "matrix_df=",
+          "samples_df=",
+          "source_file=",
+          "source_url=",
+          "column_mapping=",
+          "candidates=",
+          "notes=",
+          "saved_path="
+        ]
+      },
+      "FASTASequence": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "db",
+          "description",
+          "fasta_text",
+          "length",
+          "sequence",
+          "to_dict"
+        ],
+        "params": [
+          "accession",
+          "description",
+          "db",
+          "length",
+          "sequence",
+          "fasta_text"
+        ]
+      },
+      "FetchMode": {
+        "kind": "class",
+        "members": [
+          "AUTO",
+          "PER_GSM",
+          "RNASEQ_COUNTS",
+          "SERIES_MATRIX",
+          "SUPPLEMENTARY",
+          "from_string"
+        ],
+        "params": [
+          "value"
+        ]
+      },
+      "FilePreview": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "archive_members",
+          "columns",
+          "file_name",
+          "file_type",
+          "index_name",
+          "notes",
+          "preview_rows",
+          "sample_ids_preview",
+          "source",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "total_columns",
+          "url"
+        ],
+        "params": [
+          "accession",
+          "file_name",
+          "url",
+          "source",
+          "file_type",
+          "total_columns=",
+          "columns=",
+          "index_name=",
+          "sample_ids_preview=",
+          "preview_rows=",
+          "archive_members=",
+          "notes="
+        ]
+      },
+      "FirstFileSelector": {
+        "kind": "class",
+        "members": [
+          "select"
+        ],
+        "params": []
+      },
+      "GEOReader": {
+        "kind": "class",
+        "members": [
+          "download_gse_data",
+          "extract_gse_sample_info",
+          "extract_gsm_info",
+          "get_gse_info",
+          "get_gsm_data_status",
+          "gsms_from_gse_soft",
+          "inspect",
+          "list_gse_samples",
+          "load_rnaseq_counts",
+          "load_series_matrix",
+          "parse_gsm_soft"
+        ],
+        "params": [
+          "_http_client=",
+          "_parser="
+        ]
+      },
+      "GEOSearchHit": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "bioproject_id",
+          "dataset_type",
+          "entry_type",
+          "ftp_url",
+          "gds_uid",
+          "organism",
+          "platforms",
+          "pubmed_ids",
+          "release_date",
+          "sample_count",
+          "summary",
+          "supp_file_types",
+          "title",
+          "to_dict"
+        ],
+        "params": [
+          "accession",
+          "gds_uid",
+          "entry_type",
+          "title=",
+          "summary=",
+          "organism=",
+          "dataset_type=",
+          "platforms=",
+          "sample_count=",
+          "pubmed_ids=",
+          "bioproject_id=",
+          "supp_file_types=",
+          "ftp_url=",
+          "release_date="
+        ]
+      },
+      "GSE": {
+        "kind": "class",
+        "members": [
+          "characteristics_df",
+          "characteristics_summary",
+          "clear_cache",
+          "download_supplementary",
+          "failed_samples",
+          "gse_id",
+          "gsms",
+          "info",
+          "inspect",
+          "is_cached",
+          "items",
+          "keys",
+          "list_samples",
+          "load_cache",
+          "load_rnaseq_counts",
+          "load_series_matrix",
+          "platform_id",
+          "remove_gsm_cache",
+          "sample_count",
+          "samples_df",
+          "save",
+          "store_cache",
+          "supplementary_files",
+          "title",
+          "to_dataframe",
+          "to_dict",
+          "to_markdown",
+          "values"
+        ],
+        "params": [
+          "gse_id",
+          "mode=",
+          "overwrite_cache=",
+          "n_threads=",
+          "remove_gsm_caches=",
+          "shell_only=",
+          "file_index=",
+          "file_pattern=",
+          "file_selector=",
+          "_http_client=",
+          "_cache="
+        ]
+      },
+      "GSEInfo": {
+        "kind": "class",
+        "members": [
+          "bioproject_id",
+          "experiment_types",
+          "gse_id",
+          "gsm_ids",
+          "organisms",
+          "overall_design",
+          "platform_id",
+          "platforms",
+          "pubmed_ids",
+          "relations",
+          "summary",
+          "supplementary_files",
+          "title"
+        ],
+        "params": [
+          "gse_id",
+          "title=",
+          "summary=",
+          "overall_design=",
+          "platform_id=",
+          "platforms=",
+          "organisms=",
+          "experiment_types=",
+          "pubmed_ids=",
+          "bioproject_id=",
+          "gsm_ids=",
+          "supplementary_files=",
+          "relations="
+        ]
+      },
+      "GSM": {
+        "kind": "class",
+        "members": [
+          "array_type",
+          "characteristics",
+          "clear_cache",
+          "data",
+          "data_status",
+          "download_supplementary",
+          "gse",
+          "gsm_id",
+          "has_data",
+          "info",
+          "inspect",
+          "is_cached",
+          "load_cache",
+          "platform_id",
+          "save",
+          "store_cache",
+          "supplementary_files",
+          "title",
+          "to_dict",
+          "to_markdown"
+        ],
+        "params": [
+          "gsm_id",
+          "shell_only=",
+          "overwrite_cache=",
+          "_http_client=",
+          "_cache="
+        ]
+      },
+      "GSMInfo": {
+        "kind": "class",
+        "members": [
+          "biosample_url",
+          "characteristics",
+          "data_row_count",
+          "gsm_id",
+          "library_strategy",
+          "molecule",
+          "organism",
+          "platform_id",
+          "series_id",
+          "source_name",
+          "sra_url",
+          "supplementary_files",
+          "title"
+        ],
+        "params": [
+          "gsm_id",
+          "title=",
+          "series_id=",
+          "platform_id=",
+          "organism=",
+          "source_name=",
+          "molecule=",
+          "library_strategy=",
+          "characteristics=",
+          "supplementary_files=",
+          "sra_url=",
+          "biosample_url=",
+          "data_row_count="
+        ]
+      },
+      "GeneRecord": {
+        "kind": "class",
+        "members": [
+          "aliases",
+          "chromosome",
+          "description",
+          "gene_id",
+          "map_location",
+          "organism",
+          "other_designations",
+          "summary",
+          "symbol",
+          "to_dict"
+        ],
+        "params": [
+          "gene_id",
+          "symbol=",
+          "description=",
+          "organism=",
+          "chromosome=",
+          "map_location=",
+          "aliases=",
+          "summary=",
+          "other_designations="
+        ]
+      },
+      "GenomeDownloadResult": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "estimated_size_mb",
+          "files",
+          "include",
+          "output_dir",
+          "to_dict"
+        ],
+        "params": [
+          "accession",
+          "output_dir",
+          "files=",
+          "include=",
+          "estimated_size_mb="
+        ]
+      },
+      "HTTPError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "url",
+          "status_code",
+          "message=",
+          "hint="
+        ]
+      },
+      "HarmonizedTable": {
+        "kind": "class",
+        "members": [
+          "conflicts",
+          "coverage",
+          "field_map",
+          "normalized_df",
+          "provenance_df",
+          "raw_df",
+          "summary",
+          "unmapped_keys"
+        ],
+        "params": [
+          "normalized_df",
+          "raw_df",
+          "provenance_df",
+          "field_map=",
+          "unmapped_keys=",
+          "conflicts=",
+          "coverage="
+        ]
+      },
+      "HttpClient": {
+        "kind": "class",
+        "members": [
+          "app_config",
+          "check_health",
+          "clear_response_cache",
+          "close",
+          "download_file",
+          "get_bytes",
+          "get_json",
+          "get_range_bytes",
+          "get_text",
+          "inspect_url",
+          "rate_limit_stats",
+          "stream_lines"
+        ],
+        "params": [
+          "config=",
+          "app_config="
+        ]
+      },
+      "HttpClientConfig": {
+        "kind": "class",
+        "members": [
+          "eutils_post_threshold_chars",
+          "extra_headers",
+          "ftp_rate_limit_per_sec",
+          "geo_rate_limit_per_sec",
+          "max_retries",
+          "pool_connections",
+          "pool_maxsize",
+          "rate_limit_per_sec",
+          "retry_backoff",
+          "retry_statuses",
+          "timeout"
+        ],
+        "params": [
+          "timeout=",
+          "max_retries=",
+          "retry_backoff=",
+          "retry_statuses=",
+          "rate_limit_per_sec=",
+          "geo_rate_limit_per_sec=",
+          "ftp_rate_limit_per_sec=",
+          "eutils_post_threshold_chars=",
+          "pool_connections=",
+          "pool_maxsize=",
+          "extra_headers="
+        ]
+      },
+      "IndexFileSelector": {
+        "kind": "class",
+        "members": [
+          "select"
+        ],
+        "params": [
+          "index"
+        ]
+      },
+      "InspectionReport": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "bioproject_id",
+          "biosample_url",
+          "characteristics",
+          "characteristics_summary",
+          "data_row_count",
+          "experiment_types",
+          "extra_metadata",
+          "files",
+          "gsm_ids",
+          "organisms",
+          "overall_design",
+          "parent_gse",
+          "platforms",
+          "pubmed_ids",
+          "record_type",
+          "sample_count",
+          "sra_url",
+          "subseries_ids",
+          "summary",
+          "superseries_id",
+          "title",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "accession",
+          "record_type",
+          "title=",
+          "summary=",
+          "overall_design=",
+          "organisms=",
+          "platforms=",
+          "experiment_types=",
+          "pubmed_ids=",
+          "bioproject_id=",
+          "sra_url=",
+          "biosample_url=",
+          "parent_gse=",
+          "superseries_id=",
+          "subseries_ids=",
+          "sample_count=",
+          "gsm_ids=",
+          "data_row_count=",
+          "characteristics=",
+          "characteristics_summary=",
+          "files=",
+          "extra_metadata="
+        ]
+      },
+      "InvalidAPIKeyError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "url",
+          "detail="
+        ]
+      },
+      "InvalidAccessionError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "accession",
+          "expected_prefix="
+        ]
+      },
+      "InvalidModeError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "mode",
+          "valid_modes="
+        ]
+      },
+      "LogLevel": {
+        "kind": "class",
+        "members": [
+          "CRITICAL",
+          "DEBUG",
+          "ERROR",
+          "INFO",
+          "SILENT",
+          "WARNING"
+        ],
+        "params": [
+          "value"
+        ]
+      },
+      "MetadataStore": {
+        "kind": "class",
+        "members": [
+          "cache_dir",
+          "delete",
+          "get",
+          "get_or_build",
+          "index",
+          "put"
+        ],
+        "params": [
+          "cache_dir=",
+          "ttl_seconds="
+        ]
+      },
+      "NCBIClient": {
+        "kind": "class",
+        "members": [
+          "app_config",
+          "check_health",
+          "clear_response_cache",
+          "close",
+          "download_file",
+          "get_bytes",
+          "get_json",
+          "get_range_bytes",
+          "get_text",
+          "inspect_url",
+          "rate_limit_stats",
+          "stream_lines"
+        ],
+        "params": [
+          "config=",
+          "app_config="
+        ]
+      },
+      "NCBIClientConfig": {
+        "kind": "class",
+        "members": [
+          "eutils_post_threshold_chars",
+          "extra_headers",
+          "ftp_rate_limit_per_sec",
+          "geo_rate_limit_per_sec",
+          "max_retries",
+          "pool_connections",
+          "pool_maxsize",
+          "rate_limit_per_sec",
+          "retry_backoff",
+          "retry_statuses",
+          "timeout"
+        ],
+        "params": [
+          "timeout=",
+          "max_retries=",
+          "retry_backoff=",
+          "retry_statuses=",
+          "rate_limit_per_sec=",
+          "geo_rate_limit_per_sec=",
+          "ftp_rate_limit_per_sec=",
+          "eutils_post_threshold_chars=",
+          "pool_connections=",
+          "pool_maxsize=",
+          "extra_headers="
+        ]
+      },
+      "NCBIFileInfo": {
+        "kind": "class",
+        "members": [
+          "exists",
+          "file_type",
+          "last_modified",
+          "name",
+          "size_bytes",
+          "size_human",
+          "source",
+          "to_dict",
+          "url"
+        ],
+        "params": [
+          "name",
+          "url",
+          "size_bytes=",
+          "size_human=",
+          "last_modified=",
+          "file_type=",
+          "source=",
+          "exists="
+        ]
+      },
+      "NCBIRealmLimiter": {
+        "kind": "class",
+        "members": [
+          "acquire",
+          "pause",
+          "stats",
+          "update_eutils_rate"
+        ],
+        "params": [
+          "eutils_rate=",
+          "geo_rate=",
+          "ftp_rate=",
+          "ncbi_rate=",
+          "blast_rate="
+        ]
+      },
+      "NetworkError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "message",
+          "url=",
+          "kwargs"
+        ]
+      },
+      "NoDataAvailableError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "accession",
+          "detail=",
+          "hint="
+        ]
+      },
+      "NormalizedValue": {
+        "kind": "class",
+        "members": [
+          "confidence",
+          "extra",
+          "from_dict",
+          "provenance",
+          "raw",
+          "rule",
+          "source",
+          "source_key",
+          "to_dict",
+          "unit",
+          "value"
+        ],
+        "params": [
+          "value=",
+          "raw=",
+          "unit=",
+          "confidence=",
+          "rule=",
+          "source_key=",
+          "source=",
+          "extra="
+        ]
+      },
+      "NucleotideRecord": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "biomol",
+          "completeness",
+          "create_date",
+          "db",
+          "length",
+          "moltype",
+          "organism",
+          "source_db",
+          "taxid",
+          "title",
+          "to_dict",
+          "topology",
+          "uid",
+          "update_date",
+          "url"
+        ],
+        "params": [
+          "accession",
+          "uid=",
+          "title=",
+          "organism=",
+          "taxid=",
+          "length=",
+          "moltype=",
+          "biomol=",
+          "topology=",
+          "source_db=",
+          "completeness=",
+          "create_date=",
+          "update_date=",
+          "db="
+        ]
+      },
+      "PMCFullText": {
+        "kind": "class",
+        "members": [
+          "abstract",
+          "data_availability",
+          "doi",
+          "filter_sections",
+          "geo_accessions",
+          "is_open_access",
+          "journal",
+          "methods",
+          "notes",
+          "pmcid",
+          "pmid",
+          "pub_year",
+          "section_filter",
+          "sections",
+          "selected_sections",
+          "text_for",
+          "title",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "pmcid",
+          "pmid=",
+          "doi=",
+          "title=",
+          "journal=",
+          "pub_year=",
+          "abstract=",
+          "is_open_access=",
+          "sections=",
+          "notes=",
+          "section_filter="
+        ]
+      },
+      "PMCSection": {
+        "kind": "class",
+        "members": [
+          "kind",
+          "level",
+          "path",
+          "text",
+          "title",
+          "to_dict"
+        ],
+        "params": [
+          "title",
+          "kind",
+          "level",
+          "text",
+          "path="
+        ]
+      },
+      "ParseError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "format_type",
+          "detail="
+        ]
+      },
+      "PathTraversalError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "path",
+          "member"
+        ]
+      },
+      "PatternFileSelector": {
+        "kind": "class",
+        "members": [
+          "select"
+        ],
+        "params": [
+          "pattern"
+        ]
+      },
+      "PubMedArticle": {
+        "kind": "class",
+        "members": [
+          "abstract",
+          "author_details",
+          "authors",
+          "doi",
+          "full_text",
+          "journal",
+          "keywords",
+          "pmc_id",
+          "pmid",
+          "pub_date",
+          "title",
+          "to_dict"
+        ],
+        "params": [
+          "pmid",
+          "title=",
+          "abstract=",
+          "authors=",
+          "journal=",
+          "pub_date=",
+          "doi=",
+          "pmc_id=",
+          "keywords=",
+          "full_text=",
+          "author_details="
+        ]
+      },
+      "PyNCBIError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "message",
+          "hint="
+        ]
+      },
+      "QualityReport": {
+        "kind": "class",
+        "members": [
+          "assessed_at",
+          "completeness",
+          "from_dict",
+          "issues",
+          "score",
+          "to_dict"
+        ],
+        "params": [
+          "score=",
+          "issues=",
+          "completeness=",
+          "assessed_at="
+        ]
+      },
+      "RateLimitExceededError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "url",
+          "retry_after=",
+          "detail="
+        ]
+      },
+      "RequestEvent": {
+        "kind": "class",
+        "members": [
+          "bytes_received",
+          "elapsed_ms",
+          "error",
+          "method",
+          "rate_wait_ms",
+          "realm",
+          "status_code",
+          "to_dict",
+          "url"
+        ],
+        "params": [
+          "method",
+          "realm",
+          "url",
+          "status_code",
+          "elapsed_ms",
+          "rate_wait_ms",
+          "bytes_received",
+          "error="
+        ]
+      },
+      "RequestTimeoutError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "url",
+          "timeout"
+        ]
+      },
+      "SCHEMA_VERSION": {
+        "kind": "value"
+      },
+      "SOFTParseError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "accession",
+          "detail="
+        ]
+      },
+      "SampleRecord": {
+        "kind": "class",
+        "members": [
+          "characteristics",
+          "data_row_count",
+          "extra",
+          "from_dict",
+          "gsm_id",
+          "harmonized",
+          "library_strategy",
+          "links",
+          "molecule",
+          "organism",
+          "platform_id",
+          "source_name",
+          "supplementary_files",
+          "title",
+          "to_dict"
+        ],
+        "params": [
+          "gsm_id",
+          "title=",
+          "organism=",
+          "platform_id=",
+          "source_name=",
+          "molecule=",
+          "library_strategy=",
+          "characteristics=",
+          "harmonized=",
+          "supplementary_files=",
+          "links=",
+          "data_row_count=",
+          "extra="
+        ]
+      },
+      "ScreeningResult": {
+        "kind": "class",
+        "members": [
+          "errors",
+          "notes",
+          "query",
+          "require",
+          "rows",
+          "saved_path",
+          "study_count",
+          "table",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "rows=",
+          "errors=",
+          "notes=",
+          "query=",
+          "require=",
+          "saved_path="
+        ]
+      },
+      "Session": {
+        "kind": "class",
+        "members": [
+          "cache_dir",
+          "close",
+          "closed",
+          "max_download_mb",
+          "metrics",
+          "status",
+          "store",
+          "to_dict",
+          "verbs"
+        ],
+        "params": [
+          "api_key=",
+          "email=",
+          "cache_dir=",
+          "downloads_dir=",
+          "max_download_mb=",
+          "request_timeout=",
+          "audit_log=",
+          "agent_mode=",
+          "rate_limit_per_sec=",
+          "name=",
+          "config=",
+          "client="
+        ]
+      },
+      "SmartFileSelector": {
+        "kind": "class",
+        "members": [
+          "select"
+        ],
+        "params": []
+      },
+      "StudyBundle": {
+        "kind": "class",
+        "members": [
+          "created_at",
+          "files",
+          "gse_id",
+          "harmonization",
+          "methods_available",
+          "output_dir",
+          "pubmed_ids",
+          "quality_score",
+          "report",
+          "sample_count",
+          "sra_run_count",
+          "subseries_bundles",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "warnings"
+        ],
+        "params": [
+          "gse_id",
+          "output_dir",
+          "files=",
+          "report=",
+          "sample_count=",
+          "sra_run_count=",
+          "pubmed_ids=",
+          "methods_available=",
+          "warnings=",
+          "created_at=",
+          "subseries_bundles=",
+          "quality_score=",
+          "harmonization="
+        ]
+      },
+      "StudyRecord": {
+        "kind": "class",
+        "members": [
+          "bioproject_id",
+          "canonical_json",
+          "content_hash",
+          "declared_sample_count",
+          "experiment_types",
+          "extra",
+          "files",
+          "from_dict",
+          "gse_id",
+          "harmonization",
+          "harmonized_df",
+          "links",
+          "organisms",
+          "overall_design",
+          "platforms",
+          "provenance_df",
+          "pubmed_ids",
+          "quality",
+          "retrieved_at",
+          "sample_count",
+          "samples",
+          "samples_df",
+          "save",
+          "source_versions",
+          "subseries_ids",
+          "summary",
+          "superseries_id",
+          "title",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "gse_id",
+          "title=",
+          "summary=",
+          "overall_design=",
+          "organisms=",
+          "platforms=",
+          "experiment_types=",
+          "pubmed_ids=",
+          "bioproject_id=",
+          "superseries_id=",
+          "subseries_ids=",
+          "declared_sample_count=",
+          "samples=",
+          "files=",
+          "links=",
+          "harmonization=",
+          "quality=",
+          "retrieved_at=",
+          "source_versions=",
+          "extra="
+        ]
+      },
+      "SymlinkError": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "path",
+          "member"
+        ]
+      },
+      "TaskScope": {
+        "kind": "class",
+        "members": [
+          "complete",
+          "step"
+        ],
+        "params": [
+          "reporter",
+          "domain",
+          "operation",
+          "message",
+          "target="
+        ]
+      },
+      "TaxonRecord": {
+        "kind": "class",
+        "members": [
+          "common_name",
+          "division",
+          "genetic_code",
+          "lineage",
+          "lineage_ranks",
+          "mito_genetic_code",
+          "parent_taxid",
+          "rank",
+          "scientific_name",
+          "synonyms",
+          "taxid",
+          "to_dict",
+          "url"
+        ],
+        "params": [
+          "taxid",
+          "scientific_name=",
+          "common_name=",
+          "rank=",
+          "division=",
+          "parent_taxid=",
+          "genetic_code=",
+          "mito_genetic_code=",
+          "lineage=",
+          "lineage_ranks=",
+          "synonyms="
+        ]
+      },
+      "TokenBucketLimiter": {
+        "kind": "class",
+        "members": [
+          "acquire",
+          "pause",
+          "rate_per_sec",
+          "stats"
+        ],
+        "params": [
+          "rate_per_sec=",
+          "capacity="
+        ]
+      },
+      "Verbosity": {
+        "kind": "class",
+        "members": [
+          "DEBUG",
+          "NORMAL",
+          "SILENT",
+          "VERBOSE"
+        ],
+        "params": [
+          "value"
+        ]
+      },
+      "__author__": {
+        "kind": "value"
+      },
+      "__version__": {
+        "kind": "value"
+      },
+      "annotate_gene_ids": {
+        "kind": "function",
+        "params": [
+          "data",
+          "assembly=",
+          "columns=",
+          "http_client="
+        ]
+      },
+      "annotate_probes": {
+        "kind": "function",
+        "params": [
+          "df",
+          "gpl_id",
+          "columns=",
+          "http_client="
+        ]
+      },
+      "assess_study": {
+        "kind": "function",
+        "params": [
+          "record",
+          "ragged_threshold="
+        ]
+      },
+      "attach_full_text": {
+        "kind": "function",
+        "params": [
+          "articles",
+          "sections=",
+          "http_client="
+        ]
+      },
+      "blast": {
+        "kind": "function",
+        "params": [
+          "query",
+          "program=",
+          "database=",
+          "megablast=",
+          "evalue=",
+          "hitlist_size=",
+          "word_size=",
+          "entrez_query=",
+          "wait=",
+          "poll_interval=",
+          "timeout=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "build_study_bundle": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "output_dir=",
+          "include_matrix=",
+          "include_sra=",
+          "include_pubmed=",
+          "include_methods=",
+          "where=",
+          "check_file_sizes=",
+          "expand_subseries=",
+          "http_client="
+        ]
+      },
+      "build_study_record": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "harmonize=",
+          "assess=",
+          "enrich=",
+          "where=",
+          "check_file_sizes=",
+          "http_client="
+        ]
+      },
+      "check_blast": {
+        "kind": "function",
+        "params": [
+          "rid",
+          "http_client="
+        ]
+      },
+      "config_scope": {
+        "kind": "function",
+        "params": [
+          "config"
+        ]
+      },
+      "configure_logging": {
+        "kind": "function",
+        "params": [
+          "level=",
+          "stream=",
+          "format_style=",
+          "use_colors="
+        ]
+      },
+      "delete_blast": {
+        "kind": "function",
+        "params": [
+          "rid",
+          "http_client="
+        ]
+      },
+      "derive_config": {
+        "kind": "function",
+        "params": [
+          "base=",
+          "overrides"
+        ]
+      },
+      "download_fastq": {
+        "kind": "function",
+        "params": [
+          "accession_or_manifest",
+          "output_dir=",
+          "runs=",
+          "max_workers=",
+          "verify_md5=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client="
+        ]
+      },
+      "download_genome": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "output_dir=",
+          "include=",
+          "unpack=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client="
+        ]
+      },
+      "download_geo_files": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "output_dir=",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "where=",
+          "unpack=",
+          "annotate=",
+          "max_workers=",
+          "expand_subseries=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "download_many": {
+        "kind": "function",
+        "params": [
+          "accessions",
+          "output_dir=",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "unpack=",
+          "max_workers=",
+          "annotate=",
+          "expand_subseries=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "error_code_for": {
+        "kind": "function",
+        "params": [
+          "exc"
+        ]
+      },
+      "error_payload": {
+        "kind": "function",
+        "params": [
+          "exc",
+          "command=",
+          "target="
+        ]
+      },
+      "esearch_ids": {
+        "kind": "function",
+        "params": [
+          "db",
+          "term",
+          "limit=",
+          "sort=",
+          "http_client="
+        ]
+      },
+      "esummary_docs": {
+        "kind": "function",
+        "params": [
+          "db",
+          "uids",
+          "http_client=",
+          "batch_size="
+        ]
+      },
+      "export_citations": {
+        "kind": "function",
+        "params": [
+          "articles",
+          "save_to",
+          "fmt="
+        ]
+      },
+      "extract_gse_samples": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "where=",
+          "save_to=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "fetch_assembly": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "http_client="
+        ]
+      },
+      "fetch_bioprojects": {
+        "kind": "function",
+        "params": [
+          "ids",
+          "http_client="
+        ]
+      },
+      "fetch_biosamples": {
+        "kind": "function",
+        "params": [
+          "ids",
+          "http_client="
+        ]
+      },
+      "fetch_blast": {
+        "kind": "function",
+        "params": [
+          "rid",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_clinvar": {
+        "kind": "function",
+        "params": [
+          "ids",
+          "http_client="
+        ]
+      },
+      "fetch_dbsnp": {
+        "kind": "function",
+        "params": [
+          "rsids",
+          "http_client="
+        ]
+      },
+      "fetch_fasta": {
+        "kind": "function",
+        "params": [
+          "accessions",
+          "db=",
+          "seq_start=",
+          "seq_stop=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_fastq_urls": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_genes": {
+        "kind": "function",
+        "params": [
+          "gene_ids",
+          "http_client="
+        ]
+      },
+      "fetch_gpl_table": {
+        "kind": "function",
+        "params": [
+          "gpl_id",
+          "columns=",
+          "limit=",
+          "save_to=",
+          "source=",
+          "use_cache=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "fetch_pmc_text": {
+        "kind": "function",
+        "params": [
+          "pmid_or_pmcid",
+          "sections=",
+          "http_client="
+        ]
+      },
+      "fetch_pubmed": {
+        "kind": "function",
+        "params": [
+          "pmids",
+          "http_client="
+        ]
+      },
+      "fetch_sra_runs": {
+        "kind": "function",
+        "params": [
+          "accession_or_query",
+          "limit=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_taxonomy": {
+        "kind": "function",
+        "params": [
+          "ids_or_names",
+          "http_client="
+        ]
+      },
+      "fetch_variants": {
+        "kind": "function",
+        "params": [
+          "query",
+          "source=",
+          "significance=",
+          "gene=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "format_dataframe_preview": {
+        "kind": "function",
+        "params": [
+          "df",
+          "mode=",
+          "max_rows=",
+          "max_cols="
+        ]
+      },
+      "get_client": {
+        "kind": "function",
+        "params": []
+      },
+      "get_config": {
+        "kind": "function",
+        "params": []
+      },
+      "get_default_client": {
+        "kind": "function",
+        "params": []
+      },
+      "get_logger": {
+        "kind": "function",
+        "params": [
+          "name="
+        ]
+      },
+      "get_reporter": {
+        "kind": "function",
+        "params": []
+      },
+      "gse_of_gsm": {
+        "kind": "function",
+        "params": [
+          "gsm_id",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "harmonize_characteristics": {
+        "kind": "function",
+        "params": [
+          "char_df",
+          "source="
+        ]
+      },
+      "harmonize_sample": {
+        "kind": "function",
+        "params": [
+          "characteristics",
+          "source="
+        ]
+      },
+      "inspect_accession": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "check_file_sizes=",
+          "include_sample_breakdown=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "is_retryable": {
+        "kind": "function",
+        "params": [
+          "exc"
+        ]
+      },
+      "json_schema": {
+        "kind": "function",
+        "params": [
+          "name="
+        ]
+      },
+      "link_accession": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "http_client="
+        ]
+      },
+      "load_expression": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "prefer=",
+          "count_type=",
+          "annotate=",
+          "where=",
+          "save_to=",
+          "max_download_mb=",
+          "max_workers=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "load_gds": {
+        "kind": "function",
+        "params": [
+          "gds_id",
+          "full=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "load_rnaseq_annotation": {
+        "kind": "function",
+        "params": [
+          "assembly=",
+          "gene_ids=",
+          "refresh=",
+          "http_client="
+        ]
+      },
+      "load_rnaseq_counts": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "count_type=",
+          "assembly=",
+          "annotate=",
+          "annotation_columns=",
+          "save_to=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "load_series_matrix": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "platform_id=",
+          "annotate=",
+          "annotation_columns=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "load_study_record": {
+        "kind": "function",
+        "params": [
+          "directory",
+          "verify="
+        ]
+      },
+      "log_level": {
+        "kind": "class",
+        "members": [],
+        "params": [
+          "level"
+        ]
+      },
+      "map_columns_to_gsms": {
+        "kind": "function",
+        "params": [
+          "columns",
+          "samples_df",
+          "identifying_fields="
+        ]
+      },
+      "parse_blast_xml": {
+        "kind": "function",
+        "params": [
+          "xml_text",
+          "rid="
+        ]
+      },
+      "parse_characteristics": {
+        "kind": "function",
+        "params": [
+          "char_sections",
+          "indices="
+        ]
+      },
+      "plan_geo_download": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "output_dir=",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "where=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "platform_of_gsm": {
+        "kind": "function",
+        "params": [
+          "gsm_id",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "preview_geo_file": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "max_rows=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "read_supplementary_table": {
+        "kind": "function",
+        "params": [
+          "url_or_path",
+          "http_client="
+        ]
+      },
+      "redact_url": {
+        "kind": "function",
+        "params": [
+          "url"
+        ]
+      },
+      "render_output": {
+        "kind": "function",
+        "params": [
+          "data",
+          "mode=",
+          "command=",
+          "target=",
+          "summary=",
+          "saved_files=",
+          "next_steps=",
+          "warnings=",
+          "max_rows="
+        ]
+      },
+      "reset_config": {
+        "kind": "function",
+        "params": []
+      },
+      "resolve_cohort_files": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "where=",
+          "pattern=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "resolve_pmc_id": {
+        "kind": "function",
+        "params": [
+          "pmid_or_pmcid",
+          "http_client="
+        ]
+      },
+      "save_data": {
+        "kind": "function",
+        "params": [
+          "data",
+          "output_path"
+        ]
+      },
+      "save_study_record": {
+        "kind": "function",
+        "params": [
+          "record",
+          "output_dir"
+        ]
+      },
+      "screen_studies": {
+        "kind": "function",
+        "params": [
+          "accessions_or_query",
+          "organism=",
+          "dataset_type=",
+          "min_samples=",
+          "max_samples=",
+          "limit=",
+          "require=",
+          "harmonize=",
+          "check_file_sizes=",
+          "sort_by=",
+          "max_workers=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "search_assemblies": {
+        "kind": "function",
+        "params": [
+          "taxon",
+          "reference_only=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "search_clinvar": {
+        "kind": "function",
+        "params": [
+          "query",
+          "significance=",
+          "gene=",
+          "limit=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "search_gene": {
+        "kind": "function",
+        "params": [
+          "query",
+          "organism=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "search_geo": {
+        "kind": "function",
+        "params": [
+          "query",
+          "organism=",
+          "entry_type=",
+          "dataset_type=",
+          "min_samples=",
+          "max_samples=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "search_ncbi": {
+        "kind": "function",
+        "params": [
+          "db",
+          "query",
+          "limit=",
+          "raw=",
+          "http_client="
+        ]
+      },
+      "search_pubmed": {
+        "kind": "function",
+        "params": [
+          "query",
+          "limit=",
+          "sort=",
+          "http_client="
+        ]
+      },
+      "search_taxonomy": {
+        "kind": "function",
+        "params": [
+          "query",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "set_config": {
+        "kind": "function",
+        "params": [
+          "config"
+        ]
+      },
+      "set_level": {
+        "kind": "function",
+        "params": [
+          "level"
+        ]
+      },
+      "silence": {
+        "kind": "function",
+        "params": []
+      },
+      "submit_blast": {
+        "kind": "function",
+        "params": [
+          "query",
+          "program=",
+          "database=",
+          "megablast=",
+          "evalue=",
+          "hitlist_size=",
+          "word_size=",
+          "entrez_query=",
+          "http_client="
+        ]
+      },
+      "summarize_characteristics_df": {
+        "kind": "function",
+        "params": [
+          "df"
+        ]
+      },
+      "to_bibtex": {
+        "kind": "function",
+        "params": [
+          "article",
+          "key="
+        ]
+      },
+      "to_ris": {
+        "kind": "function",
+        "params": [
+          "article"
+        ]
+      },
+      "validate_accession": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "expected_prefix="
+        ]
+      },
+      "verbose": {
+        "kind": "function",
+        "params": [
+          "debug="
+        ]
+      },
+      "verbosity_scope": {
+        "kind": "function",
+        "params": [
+          "level"
+        ]
+      },
+      "vocabulary": {
+        "kind": "value"
+      }
+    }
+  },
+  "PyNCBI.domains": {
+    "__all__": [
+      "BlastHit",
+      "BlastJob",
+      "BlastResult",
+      "DownloadPlan",
+      "ExpressionResult",
+      "GenomeDownloadResult",
+      "ScreeningResult",
+      "StudyBundle",
+      "annotate_gene_ids",
+      "annotate_probes",
+      "attach_full_text",
+      "blast",
+      "build_study_bundle",
+      "check_blast",
+      "delete_blast",
+      "download_fastq",
+      "download_genome",
+      "download_geo_files",
+      "download_many",
+      "esearch_ids",
+      "esummary_docs",
+      "export_citations",
+      "extract_gse_samples",
+      "fetch_assembly",
+      "fetch_bioprojects",
+      "fetch_biosamples",
+      "fetch_blast",
+      "fetch_clinvar",
+      "fetch_dbsnp",
+      "fetch_fasta",
+      "fetch_fastq_urls",
+      "fetch_genes",
+      "fetch_gpl_table",
+      "fetch_pmc_text",
+      "fetch_pubmed",
+      "fetch_sra_runs",
+      "fetch_taxonomy",
+      "fetch_variants",
+      "gse_of_gsm",
+      "inspect_accession",
+      "link_accession",
+      "load_expression",
+      "load_gds",
+      "load_rnaseq_annotation",
+      "load_rnaseq_counts",
+      "load_series_matrix",
+      "map_columns_to_gsms",
+      "parse_blast_xml",
+      "plan_geo_download",
+      "platform_of_gsm",
+      "preview_geo_file",
+      "read_supplementary_table",
+      "resolve_cohort_files",
+      "resolve_pmc_id",
+      "screen_studies",
+      "search_assemblies",
+      "search_clinvar",
+      "search_gene",
+      "search_geo",
+      "search_ncbi",
+      "search_pubmed",
+      "search_taxonomy",
+      "submit_blast",
+      "to_bibtex",
+      "to_ris"
+    ],
+    "members": {
+      "BlastHit": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "align_len",
+          "bit_score",
+          "evalue",
+          "gaps",
+          "hit_frame",
+          "hit_from",
+          "hit_id",
+          "hit_num",
+          "hit_to",
+          "hsp_count",
+          "identity",
+          "length",
+          "percent_identity",
+          "query_coverage",
+          "query_frame",
+          "query_from",
+          "query_to",
+          "score",
+          "title",
+          "to_dict"
+        ],
+        "params": [
+          "hit_num",
+          "accession=",
+          "hit_id=",
+          "title=",
+          "length=",
+          "bit_score=",
+          "score=",
+          "evalue=",
+          "identity=",
+          "align_len=",
+          "gaps=",
+          "query_from=",
+          "query_to=",
+          "hit_from=",
+          "hit_to=",
+          "query_frame=",
+          "hit_frame=",
+          "hsp_count="
+        ]
+      },
+      "BlastJob": {
+        "kind": "class",
+        "members": [
+          "database",
+          "estimated_seconds",
+          "is_ready",
+          "message",
+          "program",
+          "rid",
+          "status",
+          "submitted_at",
+          "there_are_hits",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "url"
+        ],
+        "params": [
+          "rid",
+          "program=",
+          "database=",
+          "status=",
+          "there_are_hits=",
+          "estimated_seconds=",
+          "submitted_at=",
+          "message="
+        ]
+      },
+      "BlastResult": {
+        "kind": "class",
+        "members": [
+          "database",
+          "hit_count",
+          "hits",
+          "hits_df",
+          "program",
+          "query_def",
+          "query_id",
+          "query_len",
+          "rid",
+          "saved_path",
+          "stats",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "version"
+        ],
+        "params": [
+          "rid=",
+          "program=",
+          "version=",
+          "database=",
+          "query_id=",
+          "query_def=",
+          "query_len=",
+          "hits=",
+          "stats=",
+          "saved_path="
+        ]
+      },
+      "DownloadPlan": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "destination",
+          "file_count",
+          "files",
+          "fits_on_disk",
+          "free_bytes",
+          "notes",
+          "source",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "total_bytes",
+          "total_human"
+        ],
+        "params": [
+          "accession",
+          "destination",
+          "source",
+          "files=",
+          "total_bytes=",
+          "free_bytes=",
+          "notes="
+        ]
+      },
+      "ExpressionResult": {
+        "kind": "class",
+        "members": [
+          "candidates",
+          "column_mapping",
+          "gse_id",
+          "matrix_df",
+          "notes",
+          "samples_df",
+          "saved_path",
+          "shape",
+          "source",
+          "source_file",
+          "source_url",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "gse_id",
+          "source",
+          "matrix_df=",
+          "samples_df=",
+          "source_file=",
+          "source_url=",
+          "column_mapping=",
+          "candidates=",
+          "notes=",
+          "saved_path="
+        ]
+      },
+      "GenomeDownloadResult": {
+        "kind": "class",
+        "members": [
+          "accession",
+          "estimated_size_mb",
+          "files",
+          "include",
+          "output_dir",
+          "to_dict"
+        ],
+        "params": [
+          "accession",
+          "output_dir",
+          "files=",
+          "include=",
+          "estimated_size_mb="
+        ]
+      },
+      "ScreeningResult": {
+        "kind": "class",
+        "members": [
+          "errors",
+          "notes",
+          "query",
+          "require",
+          "rows",
+          "saved_path",
+          "study_count",
+          "table",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "rows=",
+          "errors=",
+          "notes=",
+          "query=",
+          "require=",
+          "saved_path="
+        ]
+      },
+      "StudyBundle": {
+        "kind": "class",
+        "members": [
+          "created_at",
+          "files",
+          "gse_id",
+          "harmonization",
+          "methods_available",
+          "output_dir",
+          "pubmed_ids",
+          "quality_score",
+          "report",
+          "sample_count",
+          "sra_run_count",
+          "subseries_bundles",
+          "to_dict",
+          "to_markdown",
+          "to_text",
+          "warnings"
+        ],
+        "params": [
+          "gse_id",
+          "output_dir",
+          "files=",
+          "report=",
+          "sample_count=",
+          "sra_run_count=",
+          "pubmed_ids=",
+          "methods_available=",
+          "warnings=",
+          "created_at=",
+          "subseries_bundles=",
+          "quality_score=",
+          "harmonization="
+        ]
+      },
+      "annotate_gene_ids": {
+        "kind": "function",
+        "params": [
+          "data",
+          "assembly=",
+          "columns=",
+          "http_client="
+        ]
+      },
+      "annotate_probes": {
+        "kind": "function",
+        "params": [
+          "df",
+          "gpl_id",
+          "columns=",
+          "http_client="
+        ]
+      },
+      "attach_full_text": {
+        "kind": "function",
+        "params": [
+          "articles",
+          "sections=",
+          "http_client="
+        ]
+      },
+      "blast": {
+        "kind": "function",
+        "params": [
+          "query",
+          "program=",
+          "database=",
+          "megablast=",
+          "evalue=",
+          "hitlist_size=",
+          "word_size=",
+          "entrez_query=",
+          "wait=",
+          "poll_interval=",
+          "timeout=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "build_study_bundle": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "output_dir=",
+          "include_matrix=",
+          "include_sra=",
+          "include_pubmed=",
+          "include_methods=",
+          "where=",
+          "check_file_sizes=",
+          "expand_subseries=",
+          "http_client="
+        ]
+      },
+      "check_blast": {
+        "kind": "function",
+        "params": [
+          "rid",
+          "http_client="
+        ]
+      },
+      "delete_blast": {
+        "kind": "function",
+        "params": [
+          "rid",
+          "http_client="
+        ]
+      },
+      "download_fastq": {
+        "kind": "function",
+        "params": [
+          "accession_or_manifest",
+          "output_dir=",
+          "runs=",
+          "max_workers=",
+          "verify_md5=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client="
+        ]
+      },
+      "download_genome": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "output_dir=",
+          "include=",
+          "unpack=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client="
+        ]
+      },
+      "download_geo_files": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "output_dir=",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "where=",
+          "unpack=",
+          "annotate=",
+          "max_workers=",
+          "expand_subseries=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "download_many": {
+        "kind": "function",
+        "params": [
+          "accessions",
+          "output_dir=",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "unpack=",
+          "max_workers=",
+          "annotate=",
+          "expand_subseries=",
+          "max_download_mb=",
+          "check_disk_space=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "esearch_ids": {
+        "kind": "function",
+        "params": [
+          "db",
+          "term",
+          "limit=",
+          "sort=",
+          "http_client="
+        ]
+      },
+      "esummary_docs": {
+        "kind": "function",
+        "params": [
+          "db",
+          "uids",
+          "http_client=",
+          "batch_size="
+        ]
+      },
+      "export_citations": {
+        "kind": "function",
+        "params": [
+          "articles",
+          "save_to",
+          "fmt="
+        ]
+      },
+      "extract_gse_samples": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "where=",
+          "save_to=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "fetch_assembly": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "http_client="
+        ]
+      },
+      "fetch_bioprojects": {
+        "kind": "function",
+        "params": [
+          "ids",
+          "http_client="
+        ]
+      },
+      "fetch_biosamples": {
+        "kind": "function",
+        "params": [
+          "ids",
+          "http_client="
+        ]
+      },
+      "fetch_blast": {
+        "kind": "function",
+        "params": [
+          "rid",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_clinvar": {
+        "kind": "function",
+        "params": [
+          "ids",
+          "http_client="
+        ]
+      },
+      "fetch_dbsnp": {
+        "kind": "function",
+        "params": [
+          "rsids",
+          "http_client="
+        ]
+      },
+      "fetch_fasta": {
+        "kind": "function",
+        "params": [
+          "accessions",
+          "db=",
+          "seq_start=",
+          "seq_stop=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_fastq_urls": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_genes": {
+        "kind": "function",
+        "params": [
+          "gene_ids",
+          "http_client="
+        ]
+      },
+      "fetch_gpl_table": {
+        "kind": "function",
+        "params": [
+          "gpl_id",
+          "columns=",
+          "limit=",
+          "save_to=",
+          "source=",
+          "use_cache=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "fetch_pmc_text": {
+        "kind": "function",
+        "params": [
+          "pmid_or_pmcid",
+          "sections=",
+          "http_client="
+        ]
+      },
+      "fetch_pubmed": {
+        "kind": "function",
+        "params": [
+          "pmids",
+          "http_client="
+        ]
+      },
+      "fetch_sra_runs": {
+        "kind": "function",
+        "params": [
+          "accession_or_query",
+          "limit=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "fetch_taxonomy": {
+        "kind": "function",
+        "params": [
+          "ids_or_names",
+          "http_client="
+        ]
+      },
+      "fetch_variants": {
+        "kind": "function",
+        "params": [
+          "query",
+          "source=",
+          "significance=",
+          "gene=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "gse_of_gsm": {
+        "kind": "function",
+        "params": [
+          "gsm_id",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "inspect_accession": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "check_file_sizes=",
+          "include_sample_breakdown=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "link_accession": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "http_client="
+        ]
+      },
+      "load_expression": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "prefer=",
+          "count_type=",
+          "annotate=",
+          "where=",
+          "save_to=",
+          "max_download_mb=",
+          "max_workers=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "load_gds": {
+        "kind": "function",
+        "params": [
+          "gds_id",
+          "full=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "load_rnaseq_annotation": {
+        "kind": "function",
+        "params": [
+          "assembly=",
+          "gene_ids=",
+          "refresh=",
+          "http_client="
+        ]
+      },
+      "load_rnaseq_counts": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "count_type=",
+          "assembly=",
+          "annotate=",
+          "annotation_columns=",
+          "save_to=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "load_series_matrix": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "platform_id=",
+          "annotate=",
+          "annotation_columns=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "map_columns_to_gsms": {
+        "kind": "function",
+        "params": [
+          "columns",
+          "samples_df",
+          "identifying_fields="
+        ]
+      },
+      "parse_blast_xml": {
+        "kind": "function",
+        "params": [
+          "xml_text",
+          "rid="
+        ]
+      },
+      "plan_geo_download": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "output_dir=",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "where=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "platform_of_gsm": {
+        "kind": "function",
+        "params": [
+          "gsm_id",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "preview_geo_file": {
+        "kind": "function",
+        "params": [
+          "accession",
+          "source=",
+          "file_index=",
+          "pattern=",
+          "max_rows=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "read_supplementary_table": {
+        "kind": "function",
+        "params": [
+          "url_or_path",
+          "http_client="
+        ]
+      },
+      "resolve_cohort_files": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "where=",
+          "pattern=",
+          "http_client=",
+          "parser="
+        ]
+      },
+      "resolve_pmc_id": {
+        "kind": "function",
+        "params": [
+          "pmid_or_pmcid",
+          "http_client="
+        ]
+      },
+      "screen_studies": {
+        "kind": "function",
+        "params": [
+          "accessions_or_query",
+          "organism=",
+          "dataset_type=",
+          "min_samples=",
+          "max_samples=",
+          "limit=",
+          "require=",
+          "harmonize=",
+          "check_file_sizes=",
+          "sort_by=",
+          "max_workers=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "search_assemblies": {
+        "kind": "function",
+        "params": [
+          "taxon",
+          "reference_only=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "search_clinvar": {
+        "kind": "function",
+        "params": [
+          "query",
+          "significance=",
+          "gene=",
+          "limit=",
+          "save_to=",
+          "http_client="
+        ]
+      },
+      "search_gene": {
+        "kind": "function",
+        "params": [
+          "query",
+          "organism=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "search_geo": {
+        "kind": "function",
+        "params": [
+          "query",
+          "organism=",
+          "entry_type=",
+          "dataset_type=",
+          "min_samples=",
+          "max_samples=",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "search_ncbi": {
+        "kind": "function",
+        "params": [
+          "db",
+          "query",
+          "limit=",
+          "raw=",
+          "http_client="
+        ]
+      },
+      "search_pubmed": {
+        "kind": "function",
+        "params": [
+          "query",
+          "limit=",
+          "sort=",
+          "http_client="
+        ]
+      },
+      "search_taxonomy": {
+        "kind": "function",
+        "params": [
+          "query",
+          "limit=",
+          "http_client="
+        ]
+      },
+      "submit_blast": {
+        "kind": "function",
+        "params": [
+          "query",
+          "program=",
+          "database=",
+          "megablast=",
+          "evalue=",
+          "hitlist_size=",
+          "word_size=",
+          "entrez_query=",
+          "http_client="
+        ]
+      },
+      "to_bibtex": {
+        "kind": "function",
+        "params": [
+          "article",
+          "key="
+        ]
+      },
+      "to_ris": {
+        "kind": "function",
+        "params": [
+          "article"
+        ]
+      }
+    }
+  },
+  "PyNCBI.metadata": {
+    "__all__": [
+      "CONFIDENCE_LEVELS",
+      "HarmonizedTable",
+      "MetadataStore",
+      "NormalizedValue",
+      "Provenance",
+      "QualityIssue",
+      "QualityReport",
+      "SCHEMA_VERSION",
+      "SampleRecord",
+      "StudyRecord",
+      "assess_study",
+      "bounded_payload",
+      "build_study_record",
+      "harmonize_characteristics",
+      "harmonize_sample",
+      "json_schema",
+      "load_study_record",
+      "paginate",
+      "save_study_record",
+      "study_markdown",
+      "vocabulary"
+    ],
+    "members": {
+      "CONFIDENCE_LEVELS": {
+        "kind": "value"
+      },
+      "HarmonizedTable": {
+        "kind": "class",
+        "members": [
+          "conflicts",
+          "coverage",
+          "field_map",
+          "normalized_df",
+          "provenance_df",
+          "raw_df",
+          "summary",
+          "unmapped_keys"
+        ],
+        "params": [
+          "normalized_df",
+          "raw_df",
+          "provenance_df",
+          "field_map=",
+          "unmapped_keys=",
+          "conflicts=",
+          "coverage="
+        ]
+      },
+      "MetadataStore": {
+        "kind": "class",
+        "members": [
+          "cache_dir",
+          "delete",
+          "get",
+          "get_or_build",
+          "index",
+          "put"
+        ],
+        "params": [
+          "cache_dir=",
+          "ttl_seconds="
+        ]
+      },
+      "NormalizedValue": {
+        "kind": "class",
+        "members": [
+          "confidence",
+          "extra",
+          "from_dict",
+          "provenance",
+          "raw",
+          "rule",
+          "source",
+          "source_key",
+          "to_dict",
+          "unit",
+          "value"
+        ],
+        "params": [
+          "value=",
+          "raw=",
+          "unit=",
+          "confidence=",
+          "rule=",
+          "source_key=",
+          "source=",
+          "extra="
+        ]
+      },
+      "Provenance": {
+        "kind": "class",
+        "members": [
+          "confidence",
+          "rule",
+          "source",
+          "source_key",
+          "to_dict"
+        ],
+        "params": [
+          "source=",
+          "source_key=",
+          "rule=",
+          "confidence="
+        ]
+      },
+      "QualityIssue": {
+        "kind": "class",
+        "members": [
+          "code",
+          "count",
+          "field",
+          "message",
+          "severity",
+          "to_dict"
+        ],
+        "params": [
+          "code",
+          "severity",
+          "message",
+          "count=",
+          "field="
+        ]
+      },
+      "QualityReport": {
+        "kind": "class",
+        "members": [
+          "assessed_at",
+          "completeness",
+          "from_dict",
+          "issues",
+          "score",
+          "to_dict"
+        ],
+        "params": [
+          "score=",
+          "issues=",
+          "completeness=",
+          "assessed_at="
+        ]
+      },
+      "SCHEMA_VERSION": {
+        "kind": "value"
+      },
+      "SampleRecord": {
+        "kind": "class",
+        "members": [
+          "characteristics",
+          "data_row_count",
+          "extra",
+          "from_dict",
+          "gsm_id",
+          "harmonized",
+          "library_strategy",
+          "links",
+          "molecule",
+          "organism",
+          "platform_id",
+          "source_name",
+          "supplementary_files",
+          "title",
+          "to_dict"
+        ],
+        "params": [
+          "gsm_id",
+          "title=",
+          "organism=",
+          "platform_id=",
+          "source_name=",
+          "molecule=",
+          "library_strategy=",
+          "characteristics=",
+          "harmonized=",
+          "supplementary_files=",
+          "links=",
+          "data_row_count=",
+          "extra="
+        ]
+      },
+      "StudyRecord": {
+        "kind": "class",
+        "members": [
+          "bioproject_id",
+          "canonical_json",
+          "content_hash",
+          "declared_sample_count",
+          "experiment_types",
+          "extra",
+          "files",
+          "from_dict",
+          "gse_id",
+          "harmonization",
+          "harmonized_df",
+          "links",
+          "organisms",
+          "overall_design",
+          "platforms",
+          "provenance_df",
+          "pubmed_ids",
+          "quality",
+          "retrieved_at",
+          "sample_count",
+          "samples",
+          "samples_df",
+          "save",
+          "source_versions",
+          "subseries_ids",
+          "summary",
+          "superseries_id",
+          "title",
+          "to_dict",
+          "to_markdown",
+          "to_text"
+        ],
+        "params": [
+          "gse_id",
+          "title=",
+          "summary=",
+          "overall_design=",
+          "organisms=",
+          "platforms=",
+          "experiment_types=",
+          "pubmed_ids=",
+          "bioproject_id=",
+          "superseries_id=",
+          "subseries_ids=",
+          "declared_sample_count=",
+          "samples=",
+          "files=",
+          "links=",
+          "harmonization=",
+          "quality=",
+          "retrieved_at=",
+          "source_versions=",
+          "extra="
+        ]
+      },
+      "assess_study": {
+        "kind": "function",
+        "params": [
+          "record",
+          "ragged_threshold="
+        ]
+      },
+      "bounded_payload": {
+        "kind": "function",
+        "params": [
+          "payload",
+          "max_chars="
+        ]
+      },
+      "build_study_record": {
+        "kind": "function",
+        "params": [
+          "gse_id",
+          "harmonize=",
+          "assess=",
+          "enrich=",
+          "where=",
+          "check_file_sizes=",
+          "http_client="
+        ]
+      },
+      "harmonize_characteristics": {
+        "kind": "function",
+        "params": [
+          "char_df",
+          "source="
+        ]
+      },
+      "harmonize_sample": {
+        "kind": "function",
+        "params": [
+          "characteristics",
+          "source="
+        ]
+      },
+      "json_schema": {
+        "kind": "function",
+        "params": [
+          "name="
+        ]
+      },
+      "load_study_record": {
+        "kind": "function",
+        "params": [
+          "directory",
+          "verify="
+        ]
+      },
+      "paginate": {
+        "kind": "function",
+        "params": [
+          "items",
+          "page_size=",
+          "page_token="
+        ]
+      },
+      "save_study_record": {
+        "kind": "function",
+        "params": [
+          "record",
+          "output_dir"
+        ]
+      },
+      "study_markdown": {
+        "kind": "function",
+        "params": [
+          "record",
+          "max_samples="
+        ]
+      },
+      "vocabulary": {
+        "kind": "value"
+      }
+    }
+  }
+}

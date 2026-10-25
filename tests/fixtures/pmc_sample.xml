@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<!DOCTYPE pmc-articleset PUBLIC "-//NLM//DTD ARTICLE SET 2.0//EN" "https://dtd.nlm.nih.gov/ncbi/pmc/articleset/nlm-articleset-2.0.dtd">
+<pmc-articleset><article article-type="research-article" xml:lang="en">
+<front>
+<journal-meta><journal-title-group><journal-title>Cell Reports</journal-title></journal-title-group></journal-meta>
+<article-meta>
+<article-id pub-id-type="pmid">32433946</article-id>
+<article-id pub-id-type="pmc">PMC7236739</article-id>
+<article-id pub-id-type="doi">10.1016/j.celrep.2020.107774</article-id>
+<title-group><article-title>Single-cell RNA expression of <italic>SARS-CoV-2</italic> entry factors</article-title></title-group>
+<pub-date pub-type="epub"><year>2020</year><month>05</month></pub-date>
+<abstract><p>We analysed PBMCs from COVID-19 patients.</p></abstract>
+</article-meta>
+</front>
+<body>
+<sec id="s1"><title>Introduction</title><p>Severe acute respiratory syndrome coronavirus 2 (SARS-CoV-2) spreads fast<xref ref-type="bibr" rid="b1">1</xref>.</p></sec>
+<sec id="s2"><title>Results</title>
+<sec id="s2a"><title>Cohort overview</title><p>Seventeen patients were enrolled.</p></sec>
+</sec>
+<sec id="s3"><title>Discussion</title><p>Our findings suggest permissiveness.</p></sec>
+<sec id="s4" sec-type="materials|methods"><title>STAR Methods</title>
+<sec id="s4a"><title>Sample processing</title><p>PBMCs were isolated by Ficoll gradient and lysed in TRIzol.</p>
+<p>Libraries were prepared with the Illumina TruSeq kit.</p></sec>
+<sec id="s4b"><title>RNA-seq data processing</title><p>Reads were aligned to <bold>GRCh38</bold> with STAR v2.7 and counted with featureCounts; counts were normalized with DESeq2.</p>
+<table-wrap><label>Table 1</label><table><tr><td>ignored table cell</td></tr></table></table-wrap>
+</sec>
+<sec id="s4c"><title>Patient classification</title><p>Severe disease was defined as requiring ICU admission.</p></sec>
+</sec>
+</body>
+<back>
+<sec sec-type="data-availability"><title>Data and Code Availability</title><p>Raw counts are available in GEO under accession GSE152418.</p></sec>
+<ack><title>Acknowledgments</title><p>We thank the patients.</p></ack>
+<ref-list><title>References</title><ref id="b1"><mixed-citation>Ref 1</mixed-citation></ref></ref-list>
+</back>
+</article></pmc-articleset>

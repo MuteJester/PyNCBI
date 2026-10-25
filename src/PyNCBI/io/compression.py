@@ -1,78 +1,12 @@
-"""Compression utilities for PyNCBI.
-
-This module provides functions for compressing, decompressing, and
-extracting archive files (gzip, zlib, tar).
-"""
+"""Compression utilities for PyNCBI: gunzip and safe tar extraction."""
 
 from __future__ import annotations
 
 import gzip
-import io
-import pickle
 import shutil
-import zlib
 from pathlib import Path
-from typing import Any
 
-from PyNCBI.exceptions import ArchiveExtractionError, PathTraversalError
-
-
-def compress_data(data: Any) -> bytes:
-    """Compress data using pickle and zlib.
-
-    Args:
-        data: Any picklable Python object
-
-    Returns:
-        Compressed bytes
-    """
-    buffer = io.BytesIO()
-    pickle.dump(data, buffer)
-    return zlib.compress(buffer.getbuffer())
-
-
-def decompress_data(compressed: bytes) -> Any:
-    """Decompress data compressed with compress_data.
-
-    Args:
-        compressed: Compressed bytes from compress_data
-
-    Returns:
-        Original Python object
-
-    Raises:
-        zlib.error: If decompression fails
-        pickle.UnpicklingError: If unpickling fails
-    """
-    decompressed = zlib.decompress(compressed)
-    return pickle.loads(decompressed)
-
-
-def compress_and_store(data: Any, path: str | Path) -> None:
-    """Compress data and store to file.
-
-    Args:
-        data: Any picklable Python object
-        path: Destination file path
-    """
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    compressed = compress_data(data)
-    path.write_bytes(compressed)
-
-
-def load_and_decompress(path: str | Path) -> Any:
-    """Load and decompress data from file.
-
-    Args:
-        path: Source file path
-
-    Returns:
-        Original Python object
-    """
-    path = Path(path)
-    compressed = path.read_bytes()
-    return decompress_data(compressed)
+from PyNCBI.core.exceptions import ArchiveExtractionError, PathTraversalError
 
 
 def gunzip_file(
@@ -96,7 +30,7 @@ def gunzip_file(
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    with gzip.open(source, "rb") as src, open(destination, "wb") as dst:
+    with gzip.open(source, "rb") as src, destination.open("wb") as dst:
         shutil.copyfileobj(src, dst, block_size)
 
     if delete_source:
@@ -145,37 +79,43 @@ def extract_tarfile(
                 if destination not in member_path.parents and member_path != destination:
                     raise PathTraversalError(str(archive), member.name)
 
-        tar.extractall(destination)
+        # Python 3.14 filters members by default; be explicit so behaviour is identical
+        # on every supported version. `data` also refuses device files and absolute paths,
+        # which the member scan above already rejects.
+        if hasattr(tarfile, "data_filter"):
+            tar.extractall(destination, filter="data")
+        else:  # pragma: no cover - only on interpreters older than 3.10.12
+            tar.extractall(destination)
 
     return destination
 
 
-def remove_non_idat_files(folder: str | Path) -> list[Path]:
-    """Remove all non-.idat files from a folder.
+def extract_zipfile(
+    archive: str | Path,
+    destination: str | Path,
+    safe: bool = True,
+) -> Path:
+    """Extract a zip archive safely (refuses path traversal and absolute member names).
 
-    Gzipped .idat files are decompressed in place.
-
-    Args:
-        folder: Path to the folder
-
-    Returns:
-        List of remaining .idat file paths
+    Raises:
+        PathTraversalError: If a member would land outside `destination`
     """
-    folder = Path(folder)
-    remaining = []
+    import zipfile
 
-    for file_path in folder.iterdir():
-        if not file_path.is_file():
-            continue
+    archive = Path(archive)
+    destination = Path(destination).resolve()
+    destination.mkdir(parents=True, exist_ok=True)
 
-        if ".idat" not in file_path.name:
-            file_path.unlink()
-        elif file_path.suffix == ".gz":
-            # Decompress gzipped idat file
-            decompressed = file_path.with_suffix("")
-            gunzip_file(file_path, decompressed, delete_source=True)
-            remaining.append(decompressed)
-        else:
-            remaining.append(file_path)
-
-    return remaining
+    with zipfile.ZipFile(archive) as zf:
+        if safe:
+            for member in zf.infolist():
+                name = member.filename
+                target = (destination / name).resolve()
+                if (
+                    name.startswith(("/", "\\"))
+                    or destination not in target.parents
+                    and target != destination
+                ):
+                    raise PathTraversalError(str(archive), name)
+        zf.extractall(destination)
+    return destination

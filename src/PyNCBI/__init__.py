@@ -1,76 +1,39 @@
-"""PyNCBI - Simple API for Python Integration with NCBI GEO Database.
+"""PyNCBI - Programmatic & Agent-Ready Python Engine, CLI, and MCP Server for NCBI.
 
-This package provides tools for downloading and processing DNA methylation
-data from NCBI's Gene Expression Omnibus (GEO) database.
+Provides fast, non-interactive tools for searching, inspecting, organizing metadata,
+and downloading raw/tabular data from NCBI (GEO Series/Samples/Platforms, Entrez,
+PubMed, Gene, BioProject, and SRA) without altering scientific measurements.
 
-Main Classes:
-    GSM: Represents a single Gene Sample Microarray
-    GSE: Represents a Gene Series Expression (collection of samples)
-    GEOReader: Low-level REST API connector
-
-New Architecture (v0.2+):
-    Services: GSMService, GSEService for modern dependency-injected usage
-    Types: DataStatus, FetchMode enums for type-safe API
-    Exceptions: PyNCBIError hierarchy for proper error handling
-
-Example:
-    # Simple usage (legacy API)
-    from PyNCBI import GSM, GSE
-
-    gsm = GSM('GSM1234567')
-    print(gsm.info)
-
-    gse = GSE('GSE12345', mode='per_gsm')
-    print(gse['GSM1234567'].data)
-
-    # Modern usage (v0.2+)
-    from PyNCBI import FetchMode
-    from PyNCBI.services import GSMService, GSEService
-
-    service = GSMService()
-    data = service.fetch('GSM1234567')
+Main Capabilities:
+    - Inspect & Organize GEO Data: `inspect_accession`, `extract_gse_samples`, `preview_geo_file`, `GSE`, `GSM`, `GEOReader`
+    - Raw & Tabular Downloads: `download_geo_files`, `load_series_matrix`, `load_rnaseq_counts`
+    - NCBI-Wide Search & Linking: `search_geo`, `search_pubmed`, `fetch_pubmed`, `search_gene`, `fetch_genes`, `fetch_sra_runs`, `fetch_fasta`, `link_accession`
+    - Gene & Platform Annotation: `fetch_gpl_table`, `load_rnaseq_annotation`, `annotate_gene_ids`, `annotate_probes`
+    - Cohort & Parallel Downloads: `download_geo_files(where=...)`, `download_many`, `resolve_cohort_files`
+    - Literature: `fetch_pmc_text` (PMC Methods / Data Availability), `resolve_pmc_id`
+    - Study Bundles: `build_study_bundle`
+    - Variants: `search_clinvar`, `fetch_clinvar`, `fetch_dbsnp`, `fetch_variants`
+    - Backend Client & Telemetry: `NCBIClient`, `get_client`, realm-aware rate limiters & health diagnostics
+    - CLI & MCP Server: `pyncbi` CLI and `pyncbi mcp` server for AI agents
 """
 
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 __author__ = "Thomas Konstantinovsky"
 
-from pathlib import Path
-
-# --- New architecture exports ---
-from PyNCBI._types import (
-    ArrayType,
-    DataStatus,
-    FetchMode,
-    FirstFileSelector,
-    GSEInfo,
-    GSMInfo,
-    IndexFileSelector,
-    InteractiveFileSelector,
+from PyNCBI.core.config import (
+    Config,
+    config_scope,
+    derive_config,
+    get_config,
+    reset_config,
+    set_config,
 )
-from PyNCBI.config import Config, get_config, set_config
-from PyNCBI.logging import (
-    LogLevel,
-    configure_logging,
-    get_logger,
-    log_level,
-    set_level,
-    silence,
-    verbose,
-)
-
-# --- Legacy exports (backward compatibility) ---
-from PyNCBI.Constants import (
-    ARRAY_TYPES,
-    CACHE_FOLDER,
-    DEFAULT_REQUEST_TIMEOUT,
-    LOCAL_DOWNLOADS_FOLDER,
-    NCBI_QUERY_BASE_URL,
-    NCBI_QUERY_URL,
-    SAMPLE_SHEET_COLUMNS,
-)
-from PyNCBI.exceptions import (
+from PyNCBI.core.exceptions import (
+    AccessionNotFoundError,
+    AccessionPrivateError,
+    BotChallengeError,
     CacheCorruptedError,
     CacheError,
     CacheNotFoundError,
@@ -82,66 +45,322 @@ from PyNCBI.exceptions import (
     DownloadError,
     HTTPError,
     InvalidAccessionError,
+    InvalidAPIKeyError,
     InvalidModeError,
     NetworkError,
     NoDataAvailableError,
     ParseError,
     PathTraversalError,
     PyNCBIError,
+    RateLimitExceededError,
     RequestTimeoutError,
     SOFTParseError,
     SymlinkError,
-    UnsupportedArrayTypeError,
+    error_code_for,
+    error_payload,
+    is_retryable,
+    redact_url,
 )
-from PyNCBI.FileUtilities import (
-    check_for_sample_sheet,
-    generate_sample_sheet,
-    parse_idat_files,
+from PyNCBI.core.formatter import (
+    format_dataframe_preview,
+    render_output,
+    save_data,
+    summarize_characteristics_df,
 )
-from PyNCBI.GEOReader import GEOReader
-from PyNCBI.GSE import GSE
-from PyNCBI.GSM import GSM
-from PyNCBI.Utilities import (
-    compress_and_store,
-    download_gsm_data,
-    get_data_locally,
+from PyNCBI.core.logging import (
+    LogLevel,
+    configure_logging,
+    get_logger,
+    log_level,
+    set_level,
+    silence,
+    verbose,
+)
+from PyNCBI.core.models import (
+    AgentEnvelope,
+    AssemblyRecord,
+    BioProjectRecord,
+    BioSampleRecord,
+    CharacteristicSummary,
+    ClinVarRecord,
+    DbSNPRecord,
+    FASTASequence,
+    FilePreview,
+    GeneRecord,
+    GEOSearchHit,
+    InspectionReport,
+    NCBIFileInfo,
+    NucleotideRecord,
+    PMCFullText,
+    PMCSection,
+    PubMedArticle,
+    TaxonRecord,
+)
+from PyNCBI.core.reporter import (
+    ActivityEvent,
+    ActivityReporter,
+    ByteProgressTracker,
+    TaskScope,
+    Verbosity,
+    get_reporter,
+    verbosity_scope,
+)
+from PyNCBI.core.types import (
+    DataStatus,
+    FetchMode,
+    FirstFileSelector,
+    GSEInfo,
+    GSMInfo,
+    IndexFileSelector,
+    PatternFileSelector,
+    SmartFileSelector,
+    validate_accession,
+)
+from PyNCBI.domains import (
+    BlastHit,
+    BlastJob,
+    BlastResult,
+    DownloadPlan,
+    ExpressionResult,
+    GenomeDownloadResult,
+    ScreeningResult,
+    StudyBundle,
+    annotate_gene_ids,
+    annotate_probes,
+    attach_full_text,
+    blast,
+    build_study_bundle,
+    check_blast,
+    delete_blast,
+    download_fastq,
+    download_genome,
+    download_geo_files,
+    download_many,
+    esearch_ids,
+    esummary_docs,
+    export_citations,
+    extract_gse_samples,
+    fetch_assembly,
+    fetch_bioprojects,
+    fetch_biosamples,
+    fetch_blast,
+    fetch_clinvar,
+    fetch_dbsnp,
+    fetch_fasta,
+    fetch_fastq_urls,
+    fetch_genes,
+    fetch_gpl_table,
+    fetch_pmc_text,
+    fetch_pubmed,
+    fetch_sra_runs,
+    fetch_taxonomy,
+    fetch_variants,
     gse_of_gsm,
-    gsm_data_file_table_start,
-    gsm_page_data_status,
-    gsms_from_gse_soft,
-    gunzip_shutil,
-    load_and_decompress,
-    parse_and_compress_gse_info,
-    parse_characteristics,
+    inspect_accession,
+    link_accession,
+    load_expression,
+    load_gds,
+    load_rnaseq_annotation,
+    load_rnaseq_counts,
+    load_series_matrix,
+    map_columns_to_gsms,
+    parse_blast_xml,
+    plan_geo_download,
     platform_of_gsm,
+    preview_geo_file,
+    read_supplementary_table,
+    resolve_cohort_files,
+    resolve_pmc_id,
+    screen_studies,
+    search_assemblies,
+    search_clinvar,
+    search_gene,
+    search_geo,
+    search_ncbi,
+    search_pubmed,
+    search_taxonomy,
+    submit_blast,
+    to_bibtex,
+    to_ris,
 )
-
-# Create cache folder on import
-Path(get_config().cache_folder).mkdir(parents=True, exist_ok=True)
+from PyNCBI.geo import GSE, GSM, GEOReader
+from PyNCBI.io import (
+    ClientMetrics,
+    HttpClient,
+    HttpClientConfig,
+    NCBIClient,
+    NCBIClientConfig,
+    NCBIRealmLimiter,
+    RequestEvent,
+    TokenBucketLimiter,
+    get_client,
+    get_default_client,
+)
+from PyNCBI.metadata import (
+    SCHEMA_VERSION,
+    HarmonizedTable,
+    MetadataStore,
+    NormalizedValue,
+    QualityReport,
+    SampleRecord,
+    StudyRecord,
+    assess_study,
+    build_study_record,
+    harmonize_characteristics,
+    harmonize_sample,
+    json_schema,
+    load_study_record,
+    save_study_record,
+    vocabulary,
+)
+from PyNCBI.parsing import parse_characteristics
+from PyNCBI.session import Session
 
 __all__ = [
     # Version info
     "__version__",
     "__author__",
-    # Main classes (legacy)
+    # Main GEO classes
     "GSM",
     "GSE",
     "GEOReader",
-    # New types and enums
+    # Backend client & telemetry
+    "NCBIClient",
+    "NCBIClientConfig",
+    "HttpClient",
+    "HttpClientConfig",
+    "ClientMetrics",
+    "RequestEvent",
+    "NCBIRealmLimiter",
+    "TokenBucketLimiter",
+    "get_client",
+    "get_default_client",
+    # High-level NCBI & GEO domain functions
+    "BlastHit",
+    "BlastJob",
+    "BlastResult",
+    "blast",
+    "check_blast",
+    "delete_blast",
+    "fetch_blast",
+    "parse_blast_xml",
+    "submit_blast",
+    "DownloadPlan",
+    "ScreeningResult",
+    "plan_geo_download",
+    "screen_studies",
+    "ExpressionResult",
+    "load_expression",
+    "map_columns_to_gsms",
+    "GenomeDownloadResult",
+    "StudyBundle",
+    "inspect_accession",
+    "extract_gse_samples",
+    "preview_geo_file",
+    "load_series_matrix",
+    "load_rnaseq_counts",
+    "read_supplementary_table",
+    "download_geo_files",
+    "download_many",
+    "build_study_bundle",
+    "resolve_cohort_files",
+    "fetch_gpl_table",
+    "load_rnaseq_annotation",
+    "annotate_gene_ids",
+    "annotate_probes",
+    "gse_of_gsm",
+    "platform_of_gsm",
+    "parse_characteristics",
+    "search_geo",
+    "search_pubmed",
+    "fetch_pubmed",
+    "fetch_pmc_text",
+    "resolve_pmc_id",
+    "attach_full_text",
+    "search_gene",
+    "fetch_genes",
+    "fetch_sra_runs",
+    "fetch_fasta",
+    "search_ncbi",
+    "search_clinvar",
+    "esearch_ids",
+    "esummary_docs",
+    "fetch_biosamples",
+    "fetch_bioprojects",
+    "fetch_taxonomy",
+    "search_taxonomy",
+    "fetch_fastq_urls",
+    "download_fastq",
+    "search_assemblies",
+    "fetch_assembly",
+    "download_genome",
+    "export_citations",
+    "to_bibtex",
+    "to_ris",
+    "load_gds",
+    "fetch_clinvar",
+    "fetch_dbsnp",
+    "fetch_variants",
+    "link_accession",
+    # Metadata layer
+    "SCHEMA_VERSION",
+    "StudyRecord",
+    "SampleRecord",
+    "NormalizedValue",
+    "QualityReport",
+    "HarmonizedTable",
+    "build_study_record",
+    "harmonize_characteristics",
+    "harmonize_sample",
+    "assess_study",
+    "MetadataStore",
+    "save_study_record",
+    "load_study_record",
+    "json_schema",
+    "vocabulary",
+    # Models & formatting
+    "NCBIFileInfo",
+    "CharacteristicSummary",
+    "InspectionReport",
+    "FilePreview",
+    "FASTASequence",
+    "GEOSearchHit",
+    "PubMedArticle",
+    "PMCFullText",
+    "PMCSection",
+    "GeneRecord",
+    "ClinVarRecord",
+    "DbSNPRecord",
+    "BioSampleRecord",
+    "BioProjectRecord",
+    "AssemblyRecord",
+    "NucleotideRecord",
+    "TaxonRecord",
+    "AgentEnvelope",
+    "summarize_characteristics_df",
+    "save_data",
+    "format_dataframe_preview",
+    "render_output",
+    # Types & Enums
     "DataStatus",
     "FetchMode",
-    "ArrayType",
     "GSMInfo",
     "GSEInfo",
+    "validate_accession",
     # File selectors
     "FirstFileSelector",
     "IndexFileSelector",
-    "InteractiveFileSelector",
+    "PatternFileSelector",
+    "SmartFileSelector",
     # Configuration
     "Config",
     "get_config",
     "set_config",
-    # Logging
+    "reset_config",
+    "config_scope",
+    "derive_config",
+    "Session",
+    # Logging & Reporting
     "LogLevel",
     "configure_logging",
     "get_logger",
@@ -149,51 +368,41 @@ __all__ = [
     "silence",
     "verbose",
     "log_level",
+    "Verbosity",
+    "ActivityEvent",
+    "ByteProgressTracker",
+    "TaskScope",
+    "ActivityReporter",
+    "get_reporter",
+    "verbosity_scope",
     # Exceptions
+    "redact_url",
+    "error_code_for",
+    "error_payload",
+    "is_retryable",
     "PyNCBIError",
     "NetworkError",
     "ConnectionFailedError",
     "RequestTimeoutError",
     "HTTPError",
+    "RateLimitExceededError",
+    "InvalidAPIKeyError",
+    "BotChallengeError",
     "DownloadError",
     "DataError",
     "ParseError",
     "SOFTParseError",
     "NoDataAvailableError",
+    "AccessionNotFoundError",
+    "AccessionPrivateError",
     "InvalidAccessionError",
     "DataProcessingError",
     "CacheError",
     "CacheCorruptedError",
     "CacheNotFoundError",
     "CacheWriteError",
-    "ConfigurationError",
-    "InvalidModeError",
-    "UnsupportedArrayTypeError",
     "PathTraversalError",
     "SymlinkError",
-    # Legacy utilities
-    "parse_characteristics",
-    "gse_of_gsm",
-    "platform_of_gsm",
-    "get_data_locally",
-    "gsm_page_data_status",
-    "download_gsm_data",
-    "gsm_data_file_table_start",
-    "compress_and_store",
-    "load_and_decompress",
-    "gsms_from_gse_soft",
-    "parse_and_compress_gse_info",
-    "gunzip_shutil",
-    # File utilities
-    "check_for_sample_sheet",
-    "generate_sample_sheet",
-    "parse_idat_files",
-    # Legacy constants
-    "NCBI_QUERY_BASE_URL",
-    "NCBI_QUERY_URL",
-    "CACHE_FOLDER",
-    "LOCAL_DOWNLOADS_FOLDER",
-    "DEFAULT_REQUEST_TIMEOUT",
-    "SAMPLE_SHEET_COLUMNS",
-    "ARRAY_TYPES",
+    "ConfigurationError",
+    "InvalidModeError",
 ]

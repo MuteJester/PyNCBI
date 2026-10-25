@@ -1,0 +1,17 @@
+# PyNCBI
+
+> Python API, CLI and MCP server for NCBI discovery, metadata and data downloads.
+> The repository is preparing version 1.0.0; hosted docs may describe an older release.
+
+- [Quickstart](https://pyncbi.readthedocs.io/en/latest/quickstart.html): search, inspect, fetch.
+- [Workflows](https://pyncbi.readthedocs.io/en/latest/workflows.html): annotation, literature, reads, variants and genomes.
+- [Data contracts](https://pyncbi.readthedocs.io/en/latest/data_contract.html): identifiers, numeric precision, missing values and metadata scores.
+- [Configuration](https://pyncbi.readthedocs.io/en/latest/configuration.html): credentials, budgets, caching and output.
+- [Agent integration](https://pyncbi.readthedocs.io/en/latest/agents.html): MCP tools, resources, prompts and HTTP sessions.
+- [CLI](https://pyncbi.readthedocs.io/en/latest/cli.html): generated command reference.
+- [Migration](https://pyncbi.readthedocs.io/en/latest/migration.html): changes from pre-1.0 versions.
+- [API](https://pyncbi.readthedocs.io/en/latest/PyNCBI.html): public Python API.
+
+For the installed contract, use `pyncbi --help`, `pyncbi schema mcp`, and `pyncbi skill`.
+Start with discovery and inspection; review `pyncbi download --dry-run` before large transfers.
+Use `--json` for envelopes and `-o` for complete files. Previews may be truncated.

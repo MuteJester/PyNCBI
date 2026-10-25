@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pyncbi.readthedocs.io/schemas/1.0/sample.schema.json",
+  "title": "PyNCBI SampleRecord",
+  "description": "A GEO sample with raw characteristics, harmonized values (with provenance) and cross-database links.",
+  "type": "object",
+  "properties": {
+    "record_type": {
+      "const": "sample"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "gsm_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "organism": {
+      "type": "string"
+    },
+    "platform_id": {
+      "type": "string"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "molecule": {
+      "type": "string"
+    },
+    "library_strategy": {
+      "type": "string"
+    },
+    "characteristics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "harmonized": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/NormalizedValue"
+      }
+    },
+    "supplementary_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "data_row_count": {
+      "type": "integer"
+    },
+    "extra": {
+      "type": "object",
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "record_type",
+    "schema_version",
+    "gsm_id"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "Provenance": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "source_key": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "inferred",
+            "verbatim",
+            "unmapped",
+            "missing"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "NormalizedValue": {
+      "type": "object",
+      "properties": {
+        "value": {},
+        "raw": {
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extra": {
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "value",
+        "raw",
+        "provenance"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="408" viewBox="0 0 510 204" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">pyncbi</title>
+  <desc id="desc">Modern lowercase pyncbi wordmark. Custom rounded geometric letters, with py in midnight blue and ncbi in cyan blue. Transparent background.</desc>
+  <g stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#172B46" aria-label="py">
+      <path d="M48 160V76M48 102a26 26 0 1 1 52 0a26 26 0 1 1-52 0Z"/>
+      <path d="m124 76 24 52m24-52-33 76q-4 9-14 9"/>
+    </g>
+    <g stroke="#159ED1" aria-label="ncbi">
+      <path d="M202 128V76m0 26a26 26 0 0 1 52 0v26"/>
+      <path d="M326 83a26 26 0 1 0 0 38"/>
+      <path d="M362 44v58a26 26 0 1 0 26-26a26 26 0 0 0-26 26"/>
+      <path d="M448 76v52"/>
+    </g>
+  </g>
+  <circle cx="448" cy="49" r="7" fill="#159ED1"/>
+</svg>
