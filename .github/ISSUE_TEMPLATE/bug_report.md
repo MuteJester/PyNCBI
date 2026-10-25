@@ -1,38 +1,24 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Report a reproducible Python API, CLI or MCP problem
 title: ''
 labels: ''
 assignees: ''
-
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**What happened, and what did you expect?**
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**Minimal reproduction**
+Include the Python snippet, CLI command or MCP tool name and arguments. Use a public
+NCBI accession when possible, and state the selected source and output format.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Environment**
+- PyNCBI version (`pyncbi --version`):
+- Python version and operating system:
+- Interface: Python / CLI / MCP (client and version):
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-**Additional context**
-Add any other context about the problem here.
+**Error and context**
+Include the complete error code/message and relevant output. For connectivity/configuration
+issues, `pyncbi status --offline --json` can help. Remove credentials, private data and
+personal paths from logs before posting. Explain whether the problem repeats with caching
+disabled and whether NCBI's website currently serves the same accession.

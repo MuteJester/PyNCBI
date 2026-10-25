@@ -1,0 +1,15 @@
+include LICENSE README.md CHANGELOG.md CONTRIBUTING.md CITATION.cff
+include pyproject.toml requirements.txt Dockerfile .dockerignore .readthedocs.yaml llms.txt
+recursive-include src *.py *.pyi py.typed *.md *.json
+recursive-include tests *.py *.json *.xml
+recursive-include scripts *.py
+recursive-include docs/source *.rst *.py
+recursive-include docs/scripts *.py
+recursive-include skills *.md
+recursive-include assets *.svg
+recursive-include .github *.yml *.md
+include docs/Makefile docs/make.bat
+prune docs/_build
+prune docs/build
+prune docs/superpowers
+prune .private

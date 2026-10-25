@@ -1,66 +1,76 @@
 [build-system]
-requires = ["setuptools>=70.0", "wheel"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "PyNCBI"
-version = "0.2.0"
-description = "Simple API for Python Integration with NCBI GEO Database"
+dynamic = ["version"]
+description = "Dependency-free Python API, CLI and MCP server for NCBI data discovery, metadata and downloads"
 readme = "README.md"
-requires-python = ">=3.11"
-license = { text = "MIT" }
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Thomas Konstantinovsky", email = "thomaskon90@gmail.com" }]
 keywords = [
-    "api",
-    "database",
-    "analytics",
-    "biology",
-    "methylation",
-    "epigenetics",
     "ncbi",
     "geo",
+    "entrez",
+    "pubmed",
+    "sra",
+    "fasta",
     "bioinformatics",
+    "genomics",
+    "rnaseq",
+    "epigenetics",
+    "methylation",
+    "mcp",
+    "ai-agents",
+    "cli",
+    "mcp-server",
+    "agent-skills",
+    "gene-expression",
+    "geo-datasets",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Information Analysis",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Typing :: Typed",
 ]
-dependencies = [
-    "methylprep>=1.7.0",
-    "wget>=3.2",
-    "tqdm>=4.66.0",
-    "pandas>=2.0.0",
-    "numpy>=1.26.0,<3.0.0",
-    "requests>=2.31.0",
-    "termcolor>=2.4.0",
-]
+dependencies = []
+
+[project.scripts]
+pyncbi = "PyNCBI.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/MuteJester/PyNCBI"
-Documentation = "https://pyncbi.readthedocs.io/"
+Documentation = "https://mutejester.github.io/PyNCBI/"
 Repository = "https://github.com/MuteJester/PyNCBI"
 Issues = "https://github.com/MuteJester/PyNCBI/issues"
 Changelog = "https://github.com/MuteJester/PyNCBI/releases"
 
 [project.optional-dependencies]
+protocol-test = ["mcp>=1.20.0"]
 dev = [
+    "requests>=2.31.0",  # independent HTTP test client; never a runtime dependency
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
-    "ruff>=0.4.0",
+    "ruff>=0.17.2,<0.18",
     "mypy>=1.10.0",
-    "pandas-stubs>=2.0.0",
-    "types-requests>=2.31.0",
-    "types-tqdm>=4.66.0",
+    "pytest-timeout>=2.3.0",
+    "vermin>=1.6.0",
+    "build>=1.2.0",
+    "twine>=5.0.0",
 ]
 docs = [
     "sphinx>=7.0.0",
@@ -72,15 +82,18 @@ docs = [
 package-dir = { "" = "src" }
 include-package-data = true
 
+[tool.setuptools.dynamic]
+version = {attr = "PyNCBI.__version__"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["py.typed"]
+"*" = ["py.typed", "*.pyi", "resources/*.md", "resources/*.txt", "resources/references/*.md", "resources/schemas/*.json"]
 
 # Ruff configuration (replaces flake8, isort, black)
 [tool.ruff]
-target-version = "py311"
+target-version = "py310"
 line-length = 100
 src = ["src", "tests"]
 
@@ -110,22 +123,14 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 
-# Mypy configuration
+# Mypy checks the standard-library-only runtime.
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = true
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "methylprep.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "wget.*"
 ignore_missing_imports = true
 
 # Pytest configuration

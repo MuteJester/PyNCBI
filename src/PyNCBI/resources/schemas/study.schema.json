@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pyncbi.readthedocs.io/schemas/1.0/study.schema.json",
+  "title": "PyNCBI StudyRecord",
+  "description": "A GEO series with its samples, downloadable files, cross-database links, harmonization summary and quality report.",
+  "type": "object",
+  "properties": {
+    "record_type": {
+      "const": "study"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "sample_count": {
+      "type": "integer"
+    },
+    "gse_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "overall_design": {
+      "type": "string"
+    },
+    "organisms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "experiment_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pubmed_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "bioproject_id": {
+      "type": "string"
+    },
+    "superseries_id": {
+      "type": "string"
+    },
+    "subseries_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "declared_sample_count": {
+      "type": "integer"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": {}
+    },
+    "harmonization": {
+      "type": "object",
+      "additionalProperties": {}
+    },
+    "retrieved_at": {
+      "type": "string"
+    },
+    "source_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "extra": {
+      "type": "object",
+      "additionalProperties": {}
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SampleRecord"
+      }
+    },
+    "quality": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QualityReport"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "record_type",
+    "schema_version",
+    "gse_id",
+    "samples"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "Provenance": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "source_key": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "inferred",
+            "verbatim",
+            "unmapped",
+            "missing"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "NormalizedValue": {
+      "type": "object",
+      "properties": {
+        "value": {},
+        "raw": {
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extra": {
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "value",
+        "raw",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "QualityIssue": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "QualityReport": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QualityIssue"
+          }
+        },
+        "completeness": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "assessed_at": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SampleRecord": {
+      "type": "object",
+      "properties": {
+        "record_type": {
+          "const": "sample"
+        },
+        "schema_version": {
+          "const": "1.0"
+        },
+        "gsm_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "organism": {
+          "type": "string"
+        },
+        "platform_id": {
+          "type": "string"
+        },
+        "source_name": {
+          "type": "string"
+        },
+        "molecule": {
+          "type": "string"
+        },
+        "library_strategy": {
+          "type": "string"
+        },
+        "characteristics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "harmonized": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/NormalizedValue"
+          }
+        },
+        "supplementary_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "links": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "data_row_count": {
+          "type": "integer"
+        },
+        "extra": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "record_type",
+        "schema_version",
+        "gsm_id"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

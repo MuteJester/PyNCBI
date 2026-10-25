@@ -3,20 +3,22 @@ import tarfile
 
 import pytest
 
+from native_support import cell, data_fields
+
 
 def test_parse_characteristics_handles_colons():
-    from PyNCBI.Utilities import parse_characteristics
+    from PyNCBI.parsing import parse_characteristics
 
     data = ["key: value: extra\nno_colon\nother: 1"]
     df = parse_characteristics(data)
 
-    assert df.loc[0, "key"] == "value: extra"
-    assert df.loc[0, "other"] == "1"
-    assert "no_colon" not in df.columns
+    assert cell(df, "0", "key") == "value: extra"
+    assert cell(df, "0", "other") == "1"
+    assert "no_colon" not in data_fields(df)
 
 
-def test_unzip_tarfile_blocks_traversal(tmp_path):
-    from PyNCBI.Utilities import unzip_tarfile
+def test_extract_tarfile_blocks_traversal(tmp_path):
+    from PyNCBI.io.compression import extract_tarfile
 
     tar_path = tmp_path / "bad.tar"
     out_dir = tmp_path / "out"
@@ -29,11 +31,11 @@ def test_unzip_tarfile_blocks_traversal(tmp_path):
         tar.addfile(info, io.BytesIO(data))
 
     with pytest.raises(Exception, match="(?i)path traversal"):
-        unzip_tarfile(str(tar_path), str(out_dir))
+        extract_tarfile(str(tar_path), str(out_dir))
 
 
-def test_unzip_tarfile_blocks_symlink(tmp_path):
-    from PyNCBI.Utilities import unzip_tarfile
+def test_extract_tarfile_blocks_symlink(tmp_path):
+    from PyNCBI.io.compression import extract_tarfile
 
     tar_path = tmp_path / "bad_link.tar"
     out_dir = tmp_path / "out"
@@ -46,4 +48,4 @@ def test_unzip_tarfile_blocks_symlink(tmp_path):
         tar.addfile(info)
 
     with pytest.raises(Exception, match="symlink|hardlink"):
-        unzip_tarfile(str(tar_path), str(out_dir))
+        extract_tarfile(str(tar_path), str(out_dir))

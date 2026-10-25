@@ -1,0 +1,18 @@
+# PyNCBI
+
+> Python API, CLI and MCP server for NCBI discovery, metadata and data downloads.
+> Version 1.0 uses only the Python standard library and returns native Python data.
+
+- [Quickstart](https://mutejester.github.io/PyNCBI/quickstart.html): search, inspect, fetch.
+- [Workflows](https://mutejester.github.io/PyNCBI/workflows.html): annotation, literature, reads, variants and genomes.
+- [Data contracts](https://mutejester.github.io/PyNCBI/data_contract.html): identifiers, numeric precision, missing values and metadata scores.
+- [Configuration](https://mutejester.github.io/PyNCBI/configuration.html): credentials, budgets, caching and output.
+- [Agent integration](https://mutejester.github.io/PyNCBI/agents.html): MCP tools, resources, prompts and HTTP sessions.
+- [CLI](https://mutejester.github.io/PyNCBI/cli.html): generated command reference.
+- [Migration](https://mutejester.github.io/PyNCBI/migration.html): changes from pre-1.0 versions.
+- [API](https://mutejester.github.io/PyNCBI/PyNCBI.html): public Python API.
+
+For the installed contract, use `pyncbi --help`, `pyncbi schema mcp`, and `pyncbi skill`.
+Connect the MCP server to your client and install its PyNCBI skill; PyPI publication does not configure agents automatically.
+Start with discovery and inspection; review `pyncbi download --dry-run` before large transfers.
+Use `--json` for envelopes and `-o` for complete files. Previews may be truncated.

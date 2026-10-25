@@ -1,30 +1,57 @@
-"""I/O layer for PyNCBI.
+"""I/O package for PyNCBI.
 
-This package contains modules for:
-- HTTP client operations
-- Caching with inspection API
-- Compression utilities (gzip, zlib, tar)
+Contains the production `NCBIClient` (`HttpClient`), realm-aware token-bucket
+rate limiters, request telemetry, caching, and safe archive decompression.
 """
 
-from PyNCBI.io.cache import CacheEntry, CompressedPickleCache
-from PyNCBI.io.compression import (
-    compress_data,
-    decompress_data,
-    extract_tarfile,
-    gunzip_file,
+from PyNCBI.io.cache import (
+    CacheEntry,
+    CompressedPickleCache,
+    LocalCache,
+    decode_cache_value,
+    encode_cache_value,
 )
-from PyNCBI.io.http_client import HttpClient, HttpClientConfig
+from PyNCBI.io.compression import extract_tarfile, extract_zipfile, gunzip_file
+from PyNCBI.io.http_client import (
+    ClientMetrics,
+    HttpClient,
+    HttpClientConfig,
+    NCBIClient,
+    NCBIClientConfig,
+    RequestEvent,
+    format_size_human,
+    get_client,
+    get_default_client,
+    infer_file_type,
+    looks_like_bot_challenge,
+    normalize_ncbi_url,
+)
+from PyNCBI.io.rate_limiter import NCBIRealmLimiter, TokenBucketLimiter, classify_ncbi_realm
+from PyNCBI.io.response_cache import ResponseCache
 
 __all__ = [
-    # HTTP
+    "NCBIClient",
+    "NCBIClientConfig",
     "HttpClient",
     "HttpClientConfig",
-    # Cache
+    "ClientMetrics",
+    "RequestEvent",
+    "get_client",
+    "get_default_client",
+    "normalize_ncbi_url",
+    "format_size_human",
+    "infer_file_type",
+    "looks_like_bot_challenge",
+    "TokenBucketLimiter",
+    "NCBIRealmLimiter",
+    "classify_ncbi_realm",
+    "ResponseCache",
     "CompressedPickleCache",
+    "LocalCache",
+    "encode_cache_value",
+    "decode_cache_value",
     "CacheEntry",
-    # Compression
-    "compress_data",
-    "decompress_data",
     "gunzip_file",
     "extract_tarfile",
+    "extract_zipfile",
 ]

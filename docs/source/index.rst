@@ -1,40 +1,43 @@
-.. PyNCBI documentation master file, created by
-   sphinx-quickstart on Mon May 30 18:22:41 2022.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+PyNCBI documentation
+====================
 
-Welcome to PyNCBI's documentation!
-==================================
-
-Here's Why PyNCBI:
-
-When working with methylation data, NCBI might be one of the most extensive open source databases that provide the
-methylation data and the information around it.
-When working with NCBI on a day-to-day basis, searching, querying, and extracting information may prove to be a
-time-consuming and headache-producing challenge. PyNCBI strives to answer all needs a researcher might need when
-communicating with NCBI using a straightforward python API that allows to quickly test, extract, analyze and download
-relevant data.
+**PyNCBI** is a programmatic, AI-agent-ready Python engine, CLI (``pyncbi``) and Model Context
+Protocol server (``pyncbi mcp``) for NCBI: GEO (Series, Samples, Platforms, DataSets), Entrez
+search with pagination, PubMed abstracts and PMC full-text Methods, Gene and platform annotation,
+SRA runs and FASTQ files, BioSample / BioProject / Taxonomy records, ClinVar and dbSNP variants,
+and genome assemblies via NCBI Datasets — using only the Python standard library, with no third-party runtime dependencies.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Guides
 
-   PyNCBI.Constants.rst
-   PyNCBI.FileUtilities.rst
-   PyNCBI.GEOReader.rst
-   PyNCBI.GSE.rst
-   PyNCBI.GSM.rst
-   PyNCBI.Utilities.rst
+   quickstart
+   workflows
+   data_contract
+   configuration
+   migration
+   releasing
+   agents
+   cli
 
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference
+
+   PyNCBI
 
 Installation
-**********************
-::
+------------
 
-           pip install PyNCBI
+.. code-block:: bash
 
-Indices and tables
-==================
+   pip install PyNCBI
+
+Optional: set ``NCBI_API_KEY`` for 10 requests/second (default 3) and ``PYNCBI_AGENT_MODE=1``
+for machine-oriented output (no progress bars or colors).
+
+Indices
+-------
 
 * :ref:`genindex`
 * :ref:`modindex`

@@ -1,0 +1,22 @@
+[
+  {
+    "task": "For GSE152418, find the severe samples and save their count matrix with its sample sheet. Keep integer counts intact.",
+    "acceptance": ["Inspect actual severity values before filtering", "Use ncbi_samples or ncbi_metadata and ncbi_expression", "Save full matrix and aligned sample sheet", "Report source and cohort size; do not treat preview as full output"]
+  },
+  {
+    "task": "What raw IDAT files would we download for cases in GSE85506? Show sizes without downloading them.",
+    "acceptance": ["Read the actual group field", "Use ncbi_download with dry_run=true and a matching file pattern", "No raw file GET or output file creation", "Do not substitute the nonexistent disease state field"]
+  },
+  {
+    "task": "Read the available Methods for PMID 32433946 and identify any stated processing steps.",
+    "acceptance": ["Use ncbi_pubmed with methods=true", "Distinguish available full text from abstract", "Cite the paper and avoid invented processing details"]
+  },
+  {
+    "task": "There is already a connected PyNCBI MCP server. Tell me how many samples GSE152418 has.",
+    "acceptance": ["Use a connected metadata/inspection tool", "Do not install the Python package or configure another server", "Avoid a matrix or raw-file download"]
+  },
+  {
+    "task": "Plot the age histogram from the local participants.csv file. Do not fetch external data.",
+    "acceptance": ["Use the local file and the user's plotting tools", "No PyNCBI retrieval or NCBI requests", "Do not install PyNCBI for this task"]
+  }
+]
